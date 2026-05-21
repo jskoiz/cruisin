@@ -87,12 +87,13 @@ final class CruisinLogicTests: XCTestCase {
             lastSpokenFactID: "bishop",
             lastDecisionReason: "Cooling down for 3 s",
             preferredCategories: ["history", "culture"],
+            excludedCategories: ["food"],
             quietMode: true
         )
 
         XCTAssertEqual(
             snapshot.summary,
-            "Harbor loop at 42% route | voice quiet | prefs history, culture | nearby Bishop Museum (history, 88m); Lunch Spot (food, 120m); Lookout (lookout, 240m) | last Cooling down for 3 s"
+            "Route: Harbor loop (42%) | Voice: quiet | Preference: prefers history, culture; skips food | Nearby: Bishop Museum (history, 88m); Lunch Spot (food, 120m); Lookout (lookout, 240m) | Decision: Cooling down for 3 s"
         )
         XCTAssertFalse(snapshot.summary.contains("Hidden Garden"))
     }
