@@ -571,28 +571,16 @@ final class DriveGuideModel: ObservableObject {
     }
 
     private func applyPreferenceHints(from text: String) {
-        let lowercasedText = text.lowercased()
-        var categories = preferredCategories
+        var preferences = RealtimeGuidePreferences(
+            preferredCategories: preferredCategories.sorted(),
+            excludedCategories: excludedCategories.sorted(),
+            quietMode: quietMode
+        )
+        guard preferences.infer(from: text) else { return }
 
-        if lowercasedText.contains("history") {
-            categories.insert("history")
-            excludedCategories.remove("history")
-        }
-
-        if lowercasedText.contains("skip food")
-            || lowercasedText.contains("no food")
-            || lowercasedText.contains("not food")
-            || lowercasedText.contains("don't mention food")
-            || lowercasedText.contains("dont mention food") {
-            categories.remove("food")
-            excludedCategories.insert("food")
-        }
-
-        preferredCategories = categories
-
-        if lowercasedText.contains("keep it short") || lowercasedText.contains("quiet") {
-            quietMode = true
-        }
+        preferredCategories = Set(preferences.preferredCategories)
+        excludedCategories = Set(preferences.excludedCategories)
+        quietMode = preferences.quietMode
     }
 
     private func updateContextSummary() {
