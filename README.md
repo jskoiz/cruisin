@@ -2,7 +2,7 @@
 
 Native SwiftUI voice-guide prototype for Honolulu route replay.
 
-Cruisin launches directly into a driving screen with a MapKit map, simulated route position, nearby local facts, narration status, Start/Pause/Replay controls, and an audit panel showing why narration was or was not selected. For OpenAI Voice Hack Night, the event branch adds AI Guide Mode: the bundled Honolulu route replay ranks nearby local facts, streams compact route/context/audit state into OpenAI Realtime with `gpt-realtime-2`, and lets the model speak concise narration while preserving local fallback paths.
+Cruisin launches directly into a driving screen with a MapKit map, simulated route position, nearby local facts, narration status, Start/Pause/Replay controls, and an audit panel showing why narration was or was not selected. For OpenAI Voice Hack Night, the current submission adds AI Guide Mode: the bundled Honolulu route replay ranks nearby local facts, streams compact route/context state into OpenAI Realtime with `gpt-realtime-2`, and lets the model speak concise narration while preserving local fallback paths.
 
 ## Event Mode Boundaries
 
@@ -45,7 +45,7 @@ Regenerate the bundled resources:
 python3 Scripts/generate_honolulu_seed.py
 ```
 
-The app does not fetch live data at runtime after these files exist in `Cruisin/`.
+The app does not fetch live POI, route, navigation, traffic, or map-search data at runtime after these files exist in `Cruisin/`. AI Guide Mode still makes OpenAI Realtime calls when enabled with a key.
 
 ## Build And Run
 
@@ -140,15 +140,15 @@ Copy-pastable answer:
 
 Project name: Cruisin AI Guide Mode
 
-Repo: `[ADD_REPO_LINK_AFTER_REMOTE_EXISTS]`
+Repo: pending external task. This checkout has no GitHub remote configured yet.
 
-Demo video or live demo link: `[ADD_DEMO_LINK]`
+Demo video or live demo link: pending external task. The local capture exists at `.derivedData/demo-artifacts/cruisin-ai-guide-demo-89s.mp4`, but no public upload/share link has been created yet.
 
-Cruisin is a native SwiftUI iOS prototype for OpenAI Voice Hack Night. It replays a Honolulu route, ranks nearby local facts from a bundled data pack, and streams compact route context into OpenAI Realtime with `gpt-realtime-2` so the guide can speak concise narration.
+Cruisin is a native SwiftUI iOS prototype for OpenAI Voice Hack Night. It replays a simulated Honolulu route, ranks bundled nearby facts, and sends compact route context to OpenAI Realtime with `gpt-realtime-2` so the guide can speak concise narration.
 
-What I am building with OpenAI realtime models: AI Guide Mode, a spoken route guide that can respond to interruptions and preference changes while the simulated drive continues. In the demo, the user taps "Skip food. Give me the history angle, and keep it short," and `gpt-realtime-2` pivots to a short history-focused narration using the current route context.
+What I am building with OpenAI realtime models: AI Guide Mode, a spoken route guide that can respond to a tapped preference command while the simulated drive continues. In the demo, the user taps "Skip food. Give me the history angle, and keep it short," and `gpt-realtime-2` uses the current route context plus local preferences to answer briefly.
 
-Relevant links: repo and demo video links can be added after the branch is pushed and the local demo recording is uploaded. The current local demo artifacts are under `.derivedData/demo-artifacts/`.
+Relevant links: public repo and demo video links are still external tasks. The current local demo artifacts are under ignored `.derivedData/demo-artifacts/`.
 
 Models used: OpenAI Realtime with `gpt-realtime-2`.
 
@@ -156,12 +156,13 @@ Scope and safety: the demo uses simulated route replay only. It is not live driv
 
 ## Current Local Validation
 
-Local route replay, AI Guide Mode, interruption, and AVFoundation fallback were validated from `/Users/jk/Desktop/cruisin` on branch `c1/openai-realtime-voice-demo` at commit `d188985` on May 20, 2026 HST / May 21, 2026 UTC:
+Local route replay, AI Guide Mode, interruption, and AVFoundation fallback were validated from `/Users/jk/Desktop/cruisin` at commit `d188985` on May 20, 2026 HST / May 21, 2026 UTC. Current HEAD is `13fd12f` on `main` (`c1/openai-realtime-voice-demo` also points at it); the only committed change since that validation commit is README submission packaging:
 
 - `git status --ignored -sb` showed a clean tracked tree with only ignored `.env` and `.derivedData/`.
-- Secret scan excluding `.env` and `.env.local` found no committed OpenAI, AWS, Google, Slack, Linear, or private-key patterns.
+- Secret scan excluding `.env`, `.env.local`, and `.derivedData/` found no committed OpenAI, AWS, Google, Slack, Linear, or private-key patterns.
 - `xcodebuild -list -project Cruisin.xcodeproj` found target and scheme `Cruisin`.
 - `xcodebuild -project Cruisin.xcodeproj -scheme Cruisin -configuration Debug -derivedDataPath .derivedData -destination 'generic/platform=iOS Simulator' build` succeeded.
+- For this submission cleanup pass, Build iOS Apps/XcodeBuildMCP `build_sim` was rerun from `/Users/jk/Desktop/cruisin/Cruisin.xcodeproj` with scheme `Cruisin` on iPhone 17 Pro Max iOS 26.5 and succeeded.
 - Build iOS Apps/XcodeBuildMCP built and launched `Cruisin` from `/Users/jk/Desktop/cruisin/Cruisin.xcodeproj` on iPhone 17 Pro Max iOS 26.5 with bundle `com.avmillabs.cruisin`.
 - Local Guide visible flow: tapping `Start` moved the route from Waikiki toward Fort DeRussy, changed status to `Live replay`, showed `Speaking: Waikiki`, updated nearby candidates, and displayed cooldown/context audit rows.
 - AI Guide visible flow: launching with `SIMCTL_CHILD_OPENAI_API_KEY` populated from ignored `.env`, selecting `AI Guide`, and tapping `Start` showed `GPT-Realtime-2 Connected`, then `GPT-Realtime-2 Speaking`, with a model transcript generated from the route context.
@@ -187,6 +188,12 @@ Treat AI Guide Mode validation separately: launch with an ignored `OPENAI_API_KE
 - No live driving: route position is simulated from bundled waypoints for repeatable event demos.
 - No turn-by-turn, traffic, or CarPlay: MapKit is used as a visual route replay surface only.
 - No backend or runtime scraping: the app uses bundled Honolulu facts with source URLs.
+
+## Unresolved External Tasks
+
+- Create or attach the GitHub remote, push the submission branch, and replace the pending repo line with the final URL.
+- Upload or share `.derivedData/demo-artifacts/cruisin-ai-guide-demo-89s.mp4`, then replace the pending demo link.
+- Run the final event dry run with a valid ignored `OPENAI_API_KEY` and the expected venue network; keep keys out of screenshots, logs, commits, and recordings.
 
 ## Next Best Step
 
