@@ -26,7 +26,7 @@ Local Guide mode and the AVFoundation fallback do not require an OpenAI key. If 
 
 ## Project Layout
 
-- `Cruisin.xcodeproj`: single-target iOS app project.
+- `Cruisin.xcodeproj`: iOS app project with the `Cruisin` app target and focused `CruisinTests` logic target.
 - `Cruisin/`: SwiftUI app source plus bundled `HonoluluFacts.json` and `HonoluluRoute.json`.
 - `Scripts/generate_honolulu_seed.py`: regenerates the offline Honolulu data pack.
 
@@ -140,7 +140,7 @@ Copy-pastable answer:
 
 Project name: Cruisin AI Guide Mode
 
-Repo: pending external task. This checkout has no GitHub remote configured yet.
+Repo: https://github.com/jskoiz/cruisin
 
 Demo video or live demo link: pending external task. The local capture exists at `.derivedData/demo-artifacts/cruisin-ai-guide-demo-89s.mp4`, but no public upload/share link has been created yet.
 
@@ -148,7 +148,7 @@ Cruisin is a native SwiftUI iOS prototype for OpenAI Voice Hack Night. It replay
 
 What I am building with OpenAI realtime models: AI Guide Mode, a spoken route guide that can respond to a tapped preference command while the simulated drive continues. In the demo, the user taps "Skip food. Give me the history angle, and keep it short," and `gpt-realtime-2` uses the current route context plus local preferences to answer briefly.
 
-Relevant links: public repo and demo video links are still external tasks. The current local demo artifacts are under ignored `.derivedData/demo-artifacts/`.
+Relevant links: the public repo is https://github.com/jskoiz/cruisin. The demo video link is still an external upload/share task; the current local demo artifacts are under ignored `.derivedData/demo-artifacts/`.
 
 Models used: OpenAI Realtime with `gpt-realtime-2`.
 
@@ -156,7 +156,7 @@ Scope and safety: the demo uses simulated route replay only. It is not live driv
 
 ## Current Local Validation
 
-Local route replay, AI Guide Mode, interruption, and AVFoundation fallback were validated from `/Users/jk/Desktop/cruisin` at commit `d188985` on May 20, 2026 HST / May 21, 2026 UTC. Current HEAD is `13fd12f` on `main` (`c1/openai-realtime-voice-demo` also points at it); the only committed change since that validation commit is README submission packaging:
+Local route replay, AI Guide Mode, interruption, and AVFoundation fallback were visually validated from `/Users/jk/Desktop/cruisin` at commit `d188985` on May 20, 2026 HST / May 21, 2026 UTC:
 
 - `git status --ignored -sb` showed a clean tracked tree with only ignored `.env` and `.derivedData/`.
 - Secret scan excluding `.env`, `.env.local`, and `.derivedData/` found no committed OpenAI, AWS, Google, Slack, Linear, or private-key patterns.
@@ -168,6 +168,14 @@ Local route replay, AI Guide Mode, interruption, and AVFoundation fallback were 
 - AI Guide visible flow: launching with `SIMCTL_CHILD_OPENAI_API_KEY` populated from ignored `.env`, selecting `AI Guide`, and tapping `Start` showed `GPT-Realtime-2 Connected`, then `GPT-Realtime-2 Speaking`, with a model transcript generated from the route context.
 - Interruption visible flow: tapping the canned command recorded `Skip food. Give me the history angle, and keep it short.` in the audit panel and updated context preferences toward history/quiet guidance.
 - Fallback visible flow: relaunching without `OPENAI_API_KEY` showed `GPT-Realtime-2 Fallback`, reported the missing environment variable in the audit panel, and continued replay with `Local fallback: Waikiki`.
+
+The merged submission state was revalidated from `/Users/jk/Desktop/cruisin` on May 20, 2026 HST / May 21, 2026 UTC:
+
+- `xcodebuild -project Cruisin.xcodeproj -scheme Cruisin -configuration Debug -derivedDataPath .derivedData -destination 'generic/platform=iOS Simulator' build` succeeded.
+- `xcodebuild -project Cruisin.xcodeproj -scheme Cruisin -configuration Debug -derivedDataPath .derivedData -destination 'generic/platform=iOS Simulator' test` correctly reported that XCTest requires a concrete simulator device.
+- `xcodebuild -project Cruisin.xcodeproj -scheme Cruisin -configuration Debug -derivedDataPath .derivedData -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max,OS=26.5' test` succeeded with 5 logic tests.
+- `python3 Scripts/package_voice_hack_night.py` succeeded and copied 2 videos plus 4 screenshots into ignored `dist/voice-hack-night/`.
+- `(cd dist/voice-hack-night && shasum -a 256 -c CHECKSUMS.txt)` succeeded.
 
 Local demo artifacts, intentionally kept under ignored `.derivedData/`:
 
@@ -199,10 +207,10 @@ Treat AI Guide Mode validation separately: launch with an ignored `OPENAI_API_KE
 
 ## Unresolved External Tasks
 
-- Create or attach the GitHub remote, push the submission branch, and replace the pending repo line with the final URL.
 - Upload or share `.derivedData/demo-artifacts/cruisin-ai-guide-demo-89s.mp4`, then replace the pending demo link.
 - Run the final event dry run with a valid ignored `OPENAI_API_KEY` and the expected venue network; keep keys out of screenshots, logs, commits, and recordings.
+- Submit the final OpenAI Voice Hack Night application using the repo link and uploaded demo video link.
 
 ## Next Best Step
 
-Add a small automated test target for narration selection, cooldown behavior, compact Realtime context construction, and fallback transitions.
+Upload the 89-second demo video, paste the final share link into the application materials, and run one venue-network dry run with an ignored `OPENAI_API_KEY`.
