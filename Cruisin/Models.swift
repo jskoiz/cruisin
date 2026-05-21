@@ -75,11 +75,17 @@ struct DriveContextSnapshot: Codable, Hashable {
     let lastSpokenFactID: String?
     let lastDecisionReason: String
     let preferredCategories: [String]
+    let excludedCategories: [String]
     let quietMode: Bool
 
     var summary: String {
         let progressPercent = Int((progress * 100).rounded())
-        let preferenceText = preferredCategories.isEmpty ? "balanced" : preferredCategories.joined(separator: ", ")
+        var preferencePieces = [
+            preferredCategories.isEmpty ? "balanced" : "prefers \(preferredCategories.joined(separator: ", "))"
+        ]
+        if !excludedCategories.isEmpty {
+            preferencePieces.append("skips \(excludedCategories.joined(separator: ", "))")
+        }
         let quietText = quietMode ? "quiet" : "normal"
         let nearbyText = nearbyFacts.prefix(3)
             .map { "\($0.name) (\($0.category), \(Int($0.distanceMeters))m)" }
@@ -88,7 +94,7 @@ struct DriveContextSnapshot: Codable, Hashable {
         return [
             "\(routeLabel) at \(progressPercent)% route",
             "voice \(quietText)",
-            "prefs \(preferenceText)",
+            "prefs \(preferencePieces.joined(separator: "; "))",
             "nearby \(nearbyText.isEmpty ? "none" : nearbyText)",
             "last \(lastDecisionReason)"
         ].joined(separator: " | ")

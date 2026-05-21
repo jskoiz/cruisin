@@ -89,8 +89,19 @@ struct RealtimeGuidePreferences: Codable, Equatable {
         needles.contains { text.contains($0) }
     }
 
-    func merged(snapshotPreferredCategories: [String], snapshotQuietMode: Bool) -> RealtimeGuidePreferences {
+    func merged(
+        snapshotPreferredCategories: [String],
+        snapshotExcludedCategories: [String],
+        snapshotQuietMode: Bool
+    ) -> RealtimeGuidePreferences {
         var merged = self
+
+        for category in snapshotExcludedCategories {
+            let normalized = category.lowercased()
+            guard !merged.excludedCategories.contains(normalized) else { continue }
+            merged.excludedCategories.append(normalized)
+            merged.preferredCategories.removeAll { $0 == normalized }
+        }
 
         for category in snapshotPreferredCategories {
             let normalized = category.lowercased()
@@ -428,6 +439,7 @@ private struct GuideContextPayload: Encodable {
         let snapshotQuietMode = reader.bool(for: ["quietMode", "isQuietMode", "quiet"]) ?? false
         let mergedPreferences = preferences.merged(
             snapshotPreferredCategories: reader.stringArray(for: ["preferredCategories", "guidePreferences"]),
+            snapshotExcludedCategories: reader.stringArray(for: ["excludedCategories", "categoryExclusions"]),
             snapshotQuietMode: snapshotQuietMode
         )
         self.preferences = mergedPreferences
