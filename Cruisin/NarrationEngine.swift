@@ -11,15 +11,21 @@ struct NarrationEngine {
     let areaRadius: CLLocationDistance = 700
     let cooldownSeconds: TimeInterval = 13
 
-    func candidates(near coordinate: CLLocationCoordinate2D, facts: [LocalFact]) -> [NearbyCandidate] {
+    func candidates(
+        near coordinate: CLLocationCoordinate2D,
+        facts: [LocalFact],
+        preferredCategories: Set<String> = []
+    ) -> [NearbyCandidate] {
         facts.compactMap { fact in
             let distance = coordinate.distance(to: fact.coordinate)
             let radius = fact.category == "area" ? areaRadius : detectionRadius
             guard distance <= radius else { return nil }
 
             let categoryBoost = boost(for: fact.category)
-            let score = max(0, radius - distance) + Double(fact.priority * 70) + categoryBoost
-            let reason = "\(Int(distance)) m away, \(fact.category), priority \(fact.priority)"
+            let preferenceBoost = preferredCategories.contains(fact.category) ? 65.0 : 0
+            let score = max(0, radius - distance) + Double(fact.priority * 70) + categoryBoost + preferenceBoost
+            let preferenceReason = preferenceBoost > 0 ? ", preference boost" : ""
+            let reason = "\(Int(distance)) m away, \(fact.category), priority \(fact.priority)\(preferenceReason)"
             return NearbyCandidate(fact: fact, distanceMeters: distance, rankScore: score, reason: reason)
         }
         .sorted {

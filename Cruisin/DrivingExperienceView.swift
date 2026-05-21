@@ -86,11 +86,17 @@ private struct RouteStatusHeader: View {
 
                 Spacer()
 
-                Label(model.isRunning ? "Live replay" : "Paused", systemImage: model.isRunning ? "waveform.circle.fill" : "pause.circle")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(model.isRunning ? .green : .orange)
-                    .labelStyle(.titleAndIcon)
+                VStack(alignment: .trailing, spacing: 6) {
+                    Label(model.isRunning ? "Live replay" : "Paused", systemImage: model.isRunning ? "waveform.circle.fill" : "pause.circle")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(model.isRunning ? .green : .orange)
+                        .labelStyle(.titleAndIcon)
+
+                    RealtimeStatusBadge(status: String(describing: model.realtimeStatus))
+                }
             }
+
+            GuideModePicker(selection: $model.guideVoiceMode)
 
             ProgressView(value: model.progress)
                 .tint(.cyan)
@@ -107,6 +113,82 @@ private struct RouteStatusHeader: View {
         .padding(12)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .shadow(color: .black.opacity(0.14), radius: 18, y: 10)
+    }
+}
+
+private struct GuideModePicker: View {
+    @Binding var selection: GuideVoiceMode
+
+    var body: some View {
+        Picker("Guide voice mode", selection: $selection) {
+            Text("Local").tag(GuideVoiceMode.local)
+            Text("AI Guide").tag(GuideVoiceMode.aiGuide)
+        }
+        .pickerStyle(.segmented)
+        .font(.caption.weight(.semibold))
+        .accessibilityLabel("Guide voice mode")
+    }
+}
+
+private struct RealtimeStatusBadge: View {
+    let status: String
+
+    var body: some View {
+        Label("GPT-Realtime-2 \(title)", systemImage: symbol)
+            .font(.caption2.weight(.bold))
+            .foregroundStyle(color)
+            .lineLimit(1)
+            .minimumScaleFactor(0.72)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(color.opacity(0.14), in: Capsule())
+            .accessibilityLabel("GPT-Realtime-2 status \(title)")
+    }
+
+    private var normalizedStatus: String {
+        let cleaned = status
+            .replacingOccurrences(of: "Optional(", with: "")
+            .replacingOccurrences(of: ")", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+
+        if cleaned.contains("disconnect") || cleaned.isEmpty { return "disconnected" }
+        if cleaned.contains("speaking") { return "speaking" }
+        if cleaned.contains("fallback") { return "fallback" }
+        if cleaned.contains("error") { return "error" }
+        if cleaned.contains("connected") { return "connected" }
+        return cleaned
+    }
+
+    private var title: String {
+        switch normalizedStatus {
+        case "connected": return "Connected"
+        case "speaking": return "Speaking"
+        case "fallback": return "Fallback"
+        case "error": return "Error"
+        case "disconnected": return "Disconnected"
+        default: return normalizedStatus.capitalized
+        }
+    }
+
+    private var symbol: String {
+        switch normalizedStatus {
+        case "connected": return "checkmark.circle.fill"
+        case "speaking": return "waveform.circle.fill"
+        case "fallback": return "arrow.triangle.2.circlepath.circle.fill"
+        case "error": return "exclamationmark.triangle.fill"
+        default: return "xmark.circle.fill"
+        }
+    }
+
+    private var color: Color {
+        switch normalizedStatus {
+        case "connected": return .green
+        case "speaking": return .cyan
+        case "fallback": return .orange
+        case "error": return .red
+        default: return .secondary
+        }
     }
 }
 
@@ -144,6 +226,8 @@ private struct NearbyContextPanel: View {
                     .foregroundStyle(.secondary)
             }
 
+            PreferenceCommandRow(model: model)
+
             if showsAudit {
                 AuditPanel(model: model)
             }
@@ -151,6 +235,45 @@ private struct NearbyContextPanel: View {
         .padding(12)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .shadow(color: .black.opacity(0.16), radius: 18, y: 10)
+    }
+}
+
+private struct PreferenceCommandRow: View {
+    @ObservedObject var model: DriveGuideModel
+
+    private let demoCommand = "Skip food. Give me the history angle, and keep it short."
+
+    var body: some View {
+        Button {
+            model.submitUserUtterance(demoCommand)
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "hand.raised.fill")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.orange)
+                    .frame(width: 20)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Interrupt / preference")
+                        .font(.caption.weight(.semibold))
+                    Text(demoCommand)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 6)
+
+                Image(systemName: "paperplane.fill")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.cyan)
+            }
+            .padding(9)
+            .background(Color(.secondarySystemBackground).opacity(0.82), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Send demo preference command")
     }
 }
 
@@ -168,6 +291,37 @@ private struct AuditPanel: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                AuditFieldRow(
+                    title: "Model transcript",
+                    value: model.lastModelTranscript,
+                    emptyText: "No model transcript yet",
+                    systemImage: "text.bubble.fill",
+                    tint: .cyan
+                )
+                AuditFieldRow(
+                    title: "User utterance",
+                    value: model.lastUserUtterance,
+                    emptyText: "No user utterance yet",
+                    systemImage: "person.wave.2.fill",
+                    tint: .blue
+                )
+                AuditFieldRow(
+                    title: "Context summary",
+                    value: model.lastContextSummary,
+                    emptyText: "No context summary yet",
+                    systemImage: "doc.text.magnifyingglass",
+                    tint: .purple
+                )
+                AuditFieldRow(
+                    title: "Fallback / error",
+                    value: model.fallbackErrorState,
+                    emptyText: "None reported",
+                    systemImage: "exclamationmark.triangle.fill",
+                    tint: .orange
+                )
             }
 
             ScrollView(.horizontal, showsIndicators: false) {
@@ -193,6 +347,38 @@ private struct AuditPanel: View {
                 }
             }
         }
+    }
+}
+
+private struct AuditFieldRow: View {
+    let title: String
+    let value: String?
+    let emptyText: String
+    let systemImage: String
+    let tint: Color
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: systemImage)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(tint)
+                .frame(width: 18)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(.secondary)
+                Text(displayValue)
+                    .font(.caption)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private var displayValue: String {
+        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? emptyText : trimmed
     }
 }
 

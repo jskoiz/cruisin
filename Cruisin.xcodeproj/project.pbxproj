@@ -17,6 +17,9 @@
 		A10000000000000000000008 /* SpeechNarrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000008 /* SpeechNarrator.swift */; };
 		A10000000000000000000009 /* HonoluluFacts.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000009 /* HonoluluFacts.json */; };
 		A1000000000000000000000A /* HonoluluRoute.json in Resources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000A /* HonoluluRoute.json */; };
+		A1000000000000000000000B /* OpenAIRealtimeClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000D /* OpenAIRealtimeClient.swift */; };
+		A1000000000000000000000C /* RealtimeGuideSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000E /* RealtimeGuideSession.swift */; };
+		A1000000000000000000000D /* RealtimeAudioPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000F /* RealtimeAudioPlayer.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -32,6 +35,9 @@
 		A2000000000000000000000A /* HonoluluRoute.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = HonoluluRoute.json; sourceTree = "<group>"; };
 		A2000000000000000000000B /* generate_honolulu_seed.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = generate_honolulu_seed.py; sourceTree = "<group>"; };
 		A2000000000000000000000C /* Cruisin.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Cruisin.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A2000000000000000000000D /* OpenAIRealtimeClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIRealtimeClient.swift; sourceTree = "<group>"; };
+		A2000000000000000000000E /* RealtimeGuideSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeGuideSession.swift; sourceTree = "<group>"; };
+		A2000000000000000000000F /* RealtimeAudioPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeAudioPlayer.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -65,6 +71,9 @@
 				A20000000000000000000006 /* RouteSimulator.swift */,
 				A20000000000000000000007 /* SeedDataStore.swift */,
 				A20000000000000000000008 /* SpeechNarrator.swift */,
+				A2000000000000000000000D /* OpenAIRealtimeClient.swift */,
+				A2000000000000000000000E /* RealtimeGuideSession.swift */,
+				A2000000000000000000000F /* RealtimeAudioPlayer.swift */,
 				A20000000000000000000009 /* HonoluluFacts.json */,
 				A2000000000000000000000A /* HonoluluRoute.json */,
 			);
@@ -165,6 +174,9 @@
 				A10000000000000000000006 /* RouteSimulator.swift in Sources */,
 				A10000000000000000000007 /* SeedDataStore.swift in Sources */,
 				A10000000000000000000008 /* SpeechNarrator.swift in Sources */,
+				A1000000000000000000000B /* OpenAIRealtimeClient.swift in Sources */,
+				A1000000000000000000000C /* RealtimeGuideSession.swift in Sources */,
+				A1000000000000000000000D /* RealtimeAudioPlayer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -49,6 +49,77 @@ struct NarrationEvent: Identifiable, Hashable {
     let routeLabel: String
 }
 
+struct FactContext: Codable, Identifiable, Hashable {
+    let id: String
+    let name: String
+    let category: String
+    let distanceMeters: Double
+    let rankScore: Double
+    let reason: String
+    let narration: String
+    let sourceName: String
+    let sourceURL: String
+}
+
+struct DriveContextSnapshot: Codable, Hashable {
+    struct Coordinates: Codable, Hashable {
+        let latitude: Double
+        let longitude: Double
+    }
+
+    let generatedAt: Date
+    let routeLabel: String
+    let coordinates: Coordinates
+    let progress: Double
+    let nearbyFacts: [FactContext]
+    let lastSpokenFactID: String?
+    let lastDecisionReason: String
+    let preferredCategories: [String]
+    let quietMode: Bool
+
+    var summary: String {
+        let progressPercent = Int((progress * 100).rounded())
+        let preferenceText = preferredCategories.isEmpty ? "balanced" : preferredCategories.joined(separator: ", ")
+        let quietText = quietMode ? "quiet" : "normal"
+        let nearbyText = nearbyFacts.prefix(3)
+            .map { "\($0.name) (\($0.category), \(Int($0.distanceMeters))m)" }
+            .joined(separator: "; ")
+
+        return [
+            "\(routeLabel) at \(progressPercent)% route",
+            "voice \(quietText)",
+            "prefs \(preferenceText)",
+            "nearby \(nearbyText.isEmpty ? "none" : nearbyText)",
+            "last \(lastDecisionReason)"
+        ].joined(separator: " | ")
+    }
+}
+
+enum GuideVoiceMode: String, Codable, Hashable, CaseIterable {
+    case local
+    case realtime
+
+    static var aiGuide: GuideVoiceMode { .realtime }
+}
+
+enum RealtimeConnectionState: String, Codable, Hashable, CaseIterable, CustomStringConvertible {
+    case disconnected
+    case connecting
+    case connected
+    case speaking
+    case fallback
+    case failed
+
+    var description: String {
+        switch self {
+        case .failed:
+            return "error"
+        default:
+            return rawValue
+        }
+    }
+}
+
 extension CLLocationCoordinate2D {
     func distance(to other: CLLocationCoordinate2D) -> CLLocationDistance {
         let start = CLLocation(latitude: latitude, longitude: longitude)
