@@ -15,6 +15,10 @@ protocol RealtimeGuideSessioning: AnyObject {
     func narrate(snapshot: DriveContextSnapshot) async
     func cancelCurrentResponse()
     func sendUserQuestion(_ text: String, snapshot: DriveContextSnapshot) async
+    func updateRouteContext(snapshot: DriveContextSnapshot) async
+    func appendMicrophoneAudio(_ pcmData: Data) async
+    func finishMicrophoneTurn() async
+    func clearMicrophoneAudio() async
 }
 
 @MainActor
@@ -31,6 +35,8 @@ final class RealtimeGuideSession: ObservableObject, RealtimeGuideSessioning {
     private let client: OpenAIRealtimeClient
     private let audioPlayer: RealtimeAudioPlayer
     private var eventTask: Task<Void, Never>?
+    private var hasActiveResponse = false
+    private var ignoresInputTranscriptionUntilSpeechStart = false
 
     convenience init(client: OpenAIRealtimeClient = OpenAIRealtimeClient()) {
         self.init(client: client, audioPlayer: RealtimeAudioPlayer())
@@ -71,6 +77,7 @@ final class RealtimeGuideSession: ObservableObject, RealtimeGuideSessioning {
         client.disconnect()
         isFallbackActive = false
         lastTranscript = ""
+        hasActiveResponse = false
         state = .disconnected
     }
 
@@ -92,10 +99,15 @@ final class RealtimeGuideSession: ObservableObject, RealtimeGuideSessioning {
             return
         }
 
+        guard !hasActiveResponse else {
+            return
+        }
+
         do {
             lastTranscript = ""
             try await client.sendConversationText(narrationContextMessage(context))
             state = .speaking
+            hasActiveResponse = true
             try await client.createResponse()
         } catch {
             fail("Realtime narration failed: \(error.localizedDescription)")
@@ -103,15 +115,9 @@ final class RealtimeGuideSession: ObservableObject, RealtimeGuideSessioning {
     }
 
     func cancelCurrentResponse() {
-        audioPlayer.stop()
-
-        if state == .speaking {
-            state = .connected
-        }
-
         Task { [weak self] in
             guard let self else { return }
-            try? await client.cancelResponse()
+            await interruptActiveResponseIfNeeded()
         }
     }
 
@@ -135,13 +141,72 @@ final class RealtimeGuideSession: ObservableObject, RealtimeGuideSessioning {
         }
 
         do {
+            await interruptActiveResponseIfNeeded()
             lastTranscript = ""
+            ignoresInputTranscriptionUntilSpeechStart = true
             try await client.sendConversationText(questionContextMessage(question: trimmed, context: context))
             state = .speaking
+            hasActiveResponse = true
             try await client.createResponse()
         } catch {
             fail("Realtime question failed: \(error.localizedDescription)")
         }
+    }
+
+    func updateRouteContext(snapshot: DriveContextSnapshot) async {
+        let context = GuideContextPayload(snapshot: snapshot, preferences: guidePreferences)
+        lastContextSummary = context.auditSummary
+
+        await connect()
+
+        guard isRealtimeUsable else {
+            return
+        }
+
+        do {
+            try await client.updateSessionInstructions(liveConversationInstructions(context: context))
+        } catch {
+            fail("Realtime context update failed: \(error.localizedDescription)")
+        }
+    }
+
+    func appendMicrophoneAudio(_ pcmData: Data) async {
+        guard !pcmData.isEmpty else { return }
+
+        if state == .disconnected || state == .fallback {
+            await connect()
+        }
+
+        guard isRealtimeUsable else {
+            return
+        }
+
+        do {
+            try await client.appendInputAudio(pcmData)
+        } catch {
+            fail("Realtime microphone streaming failed: \(error.localizedDescription)")
+        }
+    }
+
+    func finishMicrophoneTurn() async {
+        guard isRealtimeUsable else { return }
+        guard !hasActiveResponse else { return }
+
+        do {
+            try await client.commitInputAudio()
+            lastTranscript = ""
+            lastContextSummary = "Push-to-talk captured; waiting for AI Guide answer"
+            state = .speaking
+            hasActiveResponse = true
+            try await client.createResponse()
+        } catch {
+            lastContextSummary = "Push-to-talk released; waiting for AI Guide answer"
+        }
+    }
+
+    func clearMicrophoneAudio() async {
+        guard isRealtimeUsable else { return }
+        try? await client.clearInputAudio()
     }
 
     private var isRealtimeUsable: Bool {
@@ -194,6 +259,9 @@ final class RealtimeGuideSession: ObservableObject, RealtimeGuideSessioning {
                 state = .connected
             }
 
+        case .responseCreated:
+            hasActiveResponse = true
+
         case .audioDelta(let delta, _):
             audioPlayer.appendBase64AudioDelta(delta.base64Audio)
             state = .speaking
@@ -203,7 +271,9 @@ final class RealtimeGuideSession: ObservableObject, RealtimeGuideSessioning {
 
         case .transcriptDelta(let delta, let raw):
             if isInputTranscription(raw: raw) {
-                lastUserUtterance += delta.text
+                if !ignoresInputTranscriptionUntilSpeechStart {
+                    lastUserUtterance += delta.text
+                }
             } else {
                 lastTranscript += delta.text
             }
@@ -211,12 +281,15 @@ final class RealtimeGuideSession: ObservableObject, RealtimeGuideSessioning {
         case .transcriptDone(let transcript, let raw):
             let text = transcript.text ?? ""
             if isInputTranscription(raw: raw) {
-                lastUserUtterance = text
+                if !ignoresInputTranscriptionUntilSpeechStart {
+                    lastUserUtterance = text
+                }
             } else if !text.isEmpty {
                 lastTranscript = text
             }
 
         case .responseDone(_, let status, _):
+            hasActiveResponse = false
             if status == "failed" || status == "incomplete" {
                 fail("Realtime response ended with status: \(status ?? "unknown")")
             } else {
@@ -224,15 +297,55 @@ final class RealtimeGuideSession: ObservableObject, RealtimeGuideSessioning {
             }
 
         case .error(let serverError, _):
+            if isBenignCancellationError(serverError) {
+                hasActiveResponse = false
+                if state == .speaking {
+                    state = .connected
+                }
+                lastContextSummary = "No active AI response to cancel"
+                return
+            }
+
             fail("Realtime error: \(serverError.message)")
+
+        case .inputAudioSpeechStarted:
+            audioPlayer.stop()
+            hasActiveResponse = false
+            ignoresInputTranscriptionUntilSpeechStart = false
+            lastContextSummary = "Driver voice detected; interrupting current response"
+            if state == .speaking {
+                state = .connected
+            }
+
+        case .inputAudioSpeechStopped:
+            lastContextSummary = "Driver voice captured; waiting for AI Guide answer"
+
+        case .inputAudioCommitted:
+            break
 
         case .functionCallCompleted, .unknown:
             break
         }
     }
 
+    private func interruptActiveResponseIfNeeded() async {
+        let shouldCancelResponse = hasActiveResponse || state == .speaking
+        audioPlayer.stop()
+
+        guard shouldCancelResponse else { return }
+
+        hasActiveResponse = false
+        if state == .speaking {
+            state = .connected
+        }
+
+        try? await client.cancelResponse()
+        try? await Task.sleep(nanoseconds: 250_000_000)
+    }
+
     private func enterFallback(_ reason: String) {
         audioPlayer.stop()
+        hasActiveResponse = false
         isFallbackActive = true
         lastContextSummary = reason
         state = .fallback
@@ -240,6 +353,7 @@ final class RealtimeGuideSession: ObservableObject, RealtimeGuideSessioning {
 
     private func fail(_ reason: String) {
         audioPlayer.stop()
+        hasActiveResponse = false
         isFallbackActive = true
         lastContextSummary = reason
         state = .failed
@@ -259,6 +373,12 @@ final class RealtimeGuideSession: ObservableObject, RealtimeGuideSessioning {
     private func isInputTranscription(raw: OpenAIRealtimeEvent.JSONObject) -> Bool {
         let type = raw["type"] as? String
         return type?.contains("input_audio_transcription") == true
+    }
+
+    private func isBenignCancellationError(_ error: OpenAIRealtimeServerError) -> Bool {
+        let message = error.message.lowercased()
+        return message.contains("cancellation failed")
+            && message.contains("no active response")
     }
 
     private func baseSessionInstructions(context: GuideContextPayload) -> String {
@@ -309,6 +429,20 @@ final class RealtimeGuideSession: ObservableObject, RealtimeGuideSessioning {
         let sentenceLimit = context.quietMode ? "one sentence" : "one or two sentences"
         return """
         Reply in \(sentenceLimit), conversationally, under about 15 seconds. Stay grounded in the supplied local facts.
+        """
+    }
+
+    private func liveConversationInstructions(context: GuideContextPayload) -> String {
+        """
+        \(baseSessionInstructions(context: context))
+
+        The driver's microphone is live. If the driver speaks, treat it as an interruption or question about the current drive.
+
+        Current route context:
+        \(context.compactJSONString)
+
+        Answer driver questions using only topFacts when possible. If the local facts do not answer the question, say so briefly and pivot to the most relevant nearby fact. After answering, allow the app to continue normal sparse route narration from the updated route position.
+        \(questionResponseInstructions(context: context))
         """
     }
 }

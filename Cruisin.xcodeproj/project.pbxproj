@@ -26,6 +26,7 @@
 		B10000000000000000000004 /* NarrationEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000005 /* NarrationEngine.swift */; };
 		B10000000000000000000005 /* RouteSimulator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000006 /* RouteSimulator.swift */; };
 		B10000000000000000000006 /* RealtimeGuidePreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000001 /* RealtimeGuidePreferences.swift */; };
+		C10000000000000000000001 /* VoiceQuestionRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000001 /* VoiceQuestionRecorder.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -47,6 +48,7 @@
 		B20000000000000000000001 /* RealtimeGuidePreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeGuidePreferences.swift; sourceTree = "<group>"; };
 		B20000000000000000000002 /* CruisinTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CruisinTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B20000000000000000000003 /* CruisinLogicTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CruisinLogicTests.swift; sourceTree = "<group>"; };
+		C20000000000000000000001 /* VoiceQuestionRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceQuestionRecorder.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -88,6 +90,7 @@
 				A20000000000000000000006 /* RouteSimulator.swift */,
 				A20000000000000000000007 /* SeedDataStore.swift */,
 				A20000000000000000000008 /* SpeechNarrator.swift */,
+				C20000000000000000000001 /* VoiceQuestionRecorder.swift */,
 				B20000000000000000000001 /* RealtimeGuidePreferences.swift */,
 				A2000000000000000000000D /* OpenAIRealtimeClient.swift */,
 				A2000000000000000000000E /* RealtimeGuideSession.swift */,
@@ -230,6 +233,7 @@
 				A10000000000000000000006 /* RouteSimulator.swift in Sources */,
 				A10000000000000000000007 /* SeedDataStore.swift in Sources */,
 				A10000000000000000000008 /* SpeechNarrator.swift in Sources */,
+				C10000000000000000000001 /* VoiceQuestionRecorder.swift in Sources */,
 				B10000000000000000000001 /* RealtimeGuidePreferences.swift in Sources */,
 				A1000000000000000000000B /* OpenAIRealtimeClient.swift in Sources */,
 				A1000000000000000000000C /* RealtimeGuideSession.swift in Sources */,
@@ -375,6 +379,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = Cruisin;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.travel";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Cruisin can show your current driving context when live location is enabled.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Cruisin streams microphone audio only while AI Guide live mic is enabled, so the Realtime guide can answer driver interruptions.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -402,6 +407,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = Cruisin;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.travel";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Cruisin can show your current driving context when live location is enabled.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Cruisin streams microphone audio only while AI Guide live mic is enabled, so the Realtime guide can answer driver interruptions.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

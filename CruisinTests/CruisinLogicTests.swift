@@ -56,20 +56,33 @@ final class CruisinLogicTests: XCTestCase {
         XCTAssertEqual(simulator.currentLabel, "Start")
         XCTAssertEqual(simulator.progress, 0)
 
-        XCTAssertTrue(simulator.advance())
+        XCTAssertTrue(simulator.advance(by: 10))
         XCTAssertEqual(simulator.currentLabel, "Midpoint")
         XCTAssertEqual(simulator.progress, 0.5, accuracy: 0.001)
 
-        XCTAssertTrue(simulator.advance())
+        XCTAssertTrue(simulator.advance(by: 10))
         XCTAssertEqual(simulator.currentLabel, "End")
         XCTAssertEqual(simulator.progress, 1, accuracy: 0.001)
 
-        XCTAssertFalse(simulator.advance())
+        XCTAssertFalse(simulator.advance(by: 10))
         XCTAssertEqual(simulator.progress, 1, accuracy: 0.001)
 
         simulator.reset()
         XCTAssertEqual(simulator.currentLabel, "Start")
         XCTAssertEqual(simulator.progress, 0)
+    }
+
+    func testRouteSimulatorAdvancesByElapsedTimeAndInterpolatesCoordinate() {
+        var simulator = RouteSimulator(route: [
+            waypoint(id: "start", label: "Start", latitude: 21.0, longitude: -157.0, secondsFromStart: 0),
+            waypoint(id: "end", label: "End", latitude: 21.0, longitude: -156.0, secondsFromStart: 100)
+        ])
+
+        XCTAssertTrue(simulator.advance(by: 25))
+
+        XCTAssertEqual(simulator.progress, 0.25, accuracy: 0.001)
+        XCTAssertEqual(simulator.currentCoordinate.latitude, 21.0, accuracy: 0.0001)
+        XCTAssertEqual(simulator.currentCoordinate.longitude, -156.75, accuracy: 0.0001)
     }
 
     func testDriveContextSnapshotSummaryIsCompactAndCapped() {
@@ -129,12 +142,18 @@ final class CruisinLogicTests: XCTestCase {
         )
     }
 
-    private func waypoint(id: String, label: String, secondsFromStart: TimeInterval) -> RouteWaypoint {
+    private func waypoint(
+        id: String,
+        label: String,
+        latitude: Double = 21.3000,
+        longitude: Double = -157.8500,
+        secondsFromStart: TimeInterval
+    ) -> RouteWaypoint {
         RouteWaypoint(
             id: id,
             label: label,
-            latitude: 21.3000,
-            longitude: -157.8500,
+            latitude: latitude,
+            longitude: longitude,
             secondsFromStart: secondsFromStart
         )
     }

@@ -55,6 +55,16 @@ struct OpenAIRealtimeFunctionCall {
     let itemID: String?
 }
 
+struct OpenAIRealtimeSpeechStarted {
+    let itemID: String?
+    let audioStartMilliseconds: Double?
+}
+
+struct OpenAIRealtimeSpeechStopped {
+    let itemID: String?
+    let audioEndMilliseconds: Double?
+}
+
 struct OpenAIRealtimeServerError {
     let message: String
     let code: String?
@@ -70,8 +80,12 @@ enum OpenAIRealtimeEvent {
     case audioDone(responseID: String?, itemID: String?, raw: JSONObject)
     case transcriptDelta(OpenAIRealtimeTranscriptDelta, raw: JSONObject)
     case transcriptDone(OpenAIRealtimeTranscriptDone, raw: JSONObject)
+    case responseCreated(responseID: String?, raw: JSONObject)
     case responseDone(responseID: String?, status: String?, raw: JSONObject)
     case functionCallCompleted(OpenAIRealtimeFunctionCall, raw: JSONObject)
+    case inputAudioSpeechStarted(OpenAIRealtimeSpeechStarted, raw: JSONObject)
+    case inputAudioSpeechStopped(OpenAIRealtimeSpeechStopped, raw: JSONObject)
+    case inputAudioCommitted(itemID: String?, raw: JSONObject)
     case error(OpenAIRealtimeServerError, raw: JSONObject)
     case unknown(type: String, raw: JSONObject)
 }
@@ -163,6 +177,37 @@ final class OpenAIRealtimeClient {
         try await send(payload)
     }
 
+    func appendInputAudio(_ pcmAudioData: Data) async throws {
+        guard !pcmAudioData.isEmpty else { return }
+
+        let payload: JSONObject = [
+            "type": "input_audio_buffer.append",
+            "audio": pcmAudioData.base64EncodedString()
+        ]
+
+        try await send(payload)
+    }
+
+    func clearInputAudio() async throws {
+        let payload: JSONObject = [
+            "type": "input_audio_buffer.clear"
+        ]
+
+        try await send(payload)
+    }
+
+    func commitInputAudio() async throws {
+        let payload: JSONObject = [
+            "type": "input_audio_buffer.commit"
+        ]
+
+        try await send(payload)
+    }
+
+    func updateSessionInstructions(_ instructions: String) async throws {
+        try await sendSessionUpdate(instructions: instructions)
+    }
+
     func createResponse() async throws {
         let payload: JSONObject = [
             "type": "response.create"
@@ -192,7 +237,7 @@ final class OpenAIRealtimeClient {
         try await send(payload)
     }
 
-    private func sendSessionUpdate() async throws {
+    private func sendSessionUpdate(instructions: String = OpenAIRealtimeClient.instructions) async throws {
         let payload: JSONObject = [
             "type": "session.update",
             "session": [
@@ -203,6 +248,27 @@ final class OpenAIRealtimeClient {
                     "effort": "low"
                 ],
                 "audio": [
+                    "input": [
+                        "format": [
+                            "type": "audio/pcm",
+                            "rate": 24_000
+                        ],
+                        "noise_reduction": [
+                            "type": "near_field"
+                        ],
+                        "transcription": [
+                            "model": "gpt-4o-mini-transcribe",
+                            "language": "en"
+                        ],
+                        "turn_detection": [
+                            "type": "server_vad",
+                            "threshold": 0.875,
+                            "prefix_padding_ms": 220,
+                            "silence_duration_ms": 750,
+                            "create_response": true,
+                            "interrupt_response": true
+                        ]
+                    ],
                     "output": [
                         "format": [
                             "type": "audio/pcm",
@@ -211,7 +277,7 @@ final class OpenAIRealtimeClient {
                         "voice": voice
                     ]
                 ],
-                "instructions": Self.instructions
+                "instructions": instructions
             ]
         ]
 
@@ -369,6 +435,12 @@ final class OpenAIRealtimeClient {
                 itemID: raw.stringValue(for: "item_id"),
                 raw: raw
             )
+        case "response.created":
+            let response = raw.dictionaryValue(for: "response")
+            return .responseCreated(
+                responseID: response?.stringValue(for: "id") ?? raw.stringValue(for: "response_id"),
+                raw: raw
+            )
         case "response.output_audio_transcript.delta",
              "response.audio_transcript.delta",
              "conversation.item.input_audio_transcription.delta":
@@ -428,6 +500,24 @@ final class OpenAIRealtimeClient {
                 )
             }
             return .unknown(type: type, raw: raw)
+        case "input_audio_buffer.speech_started":
+            return .inputAudioSpeechStarted(
+                OpenAIRealtimeSpeechStarted(
+                    itemID: raw.stringValue(for: "item_id"),
+                    audioStartMilliseconds: raw.doubleValue(for: "audio_start_ms")
+                ),
+                raw: raw
+            )
+        case "input_audio_buffer.speech_stopped":
+            return .inputAudioSpeechStopped(
+                OpenAIRealtimeSpeechStopped(
+                    itemID: raw.stringValue(for: "item_id"),
+                    audioEndMilliseconds: raw.doubleValue(for: "audio_end_ms")
+                ),
+                raw: raw
+            )
+        case "input_audio_buffer.committed":
+            return .inputAudioCommitted(itemID: raw.stringValue(for: "item_id"), raw: raw)
         case "error":
             let error = raw.dictionaryValue(for: "error")
             return .error(
@@ -483,6 +573,18 @@ private extension Dictionary where Key == String, Value == Any {
 
         if let value = self[key] as? Double {
             return Int(value)
+        }
+
+        return nil
+    }
+
+    func doubleValue(for key: String) -> Double? {
+        if let value = self[key] as? Double {
+            return value
+        }
+
+        if let value = self[key] as? Int {
+            return Double(value)
         }
 
         return nil

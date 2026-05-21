@@ -5,10 +5,12 @@ struct DrivingExperienceView: View {
     @ObservedObject var model: DriveGuideModel
     @State private var cameraPosition: MapCameraPosition = .region(
         MKCoordinateRegion(
-            center: CLLocationCoordinate2D(latitude: 21.2969, longitude: -157.8498),
-            span: MKCoordinateSpan(latitudeDelta: 0.055, longitudeDelta: 0.06)
+            center: CLLocationCoordinate2D(latitude: 21.2785, longitude: -157.8277),
+            span: MapZoomLevel.street.span
         )
     )
+    @State private var mapZoomLevel: MapZoomLevel = .street
+    @State private var followsRoutePosition = true
     @State private var showsAudit = true
 
     var body: some View {
@@ -34,11 +36,32 @@ struct DrivingExperienceView: View {
             .ignoresSafeArea()
             .onChange(of: model.currentCoordinate.latitude) { _, _ in updateCamera() }
             .onChange(of: model.currentCoordinate.longitude) { _, _ in updateCamera() }
+            .onChange(of: cameraPosition.positionedByUser) { _, positionedByUser in
+                if positionedByUser {
+                    followsRoutePosition = false
+                }
+            }
+            .onAppear {
+                updateCamera(animated: false)
+            }
 
             VStack(spacing: 10) {
                 RouteStatusHeader(model: model)
                     .padding(.horizontal, 14)
                     .padding(.top, 10)
+
+                MapCameraControls(
+                    selection: Binding(
+                        get: { mapZoomLevel },
+                        set: { zoomLevel in
+                            mapZoomLevel = zoomLevel
+                            recenterOnRoute()
+                        }
+                    ),
+                    followsRoutePosition: followsRoutePosition,
+                    onRecenter: recenterOnRoute
+                )
+                .padding(.horizontal, 14)
 
                 Spacer()
 
@@ -58,15 +81,83 @@ struct DrivingExperienceView: View {
         }
     }
 
-    private func updateCamera() {
-        withAnimation(.easeInOut(duration: 0.55)) {
-            cameraPosition = .region(
-                MKCoordinateRegion(
-                    center: model.currentCoordinate,
-                    span: MKCoordinateSpan(latitudeDelta: 0.028, longitudeDelta: 0.032)
-                )
-            )
+    private func recenterOnRoute() {
+        followsRoutePosition = true
+        updateCamera()
+    }
+
+    private func updateCamera(animated: Bool = true) {
+        guard followsRoutePosition else { return }
+
+        let region = MKCoordinateRegion(
+            center: model.currentCoordinate,
+            span: mapZoomLevel.span
+        )
+
+        if animated {
+            withAnimation(.easeInOut(duration: 0.55)) {
+                cameraPosition = .region(region)
+            }
+        } else {
+            cameraPosition = .region(region)
         }
+    }
+}
+
+private enum MapZoomLevel: String, CaseIterable, Identifiable {
+    case route
+    case close
+    case street
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .route: return "Route"
+        case .close: return "Close"
+        case .street: return "Street"
+        }
+    }
+
+    var span: MKCoordinateSpan {
+        switch self {
+        case .route:
+            return MKCoordinateSpan(latitudeDelta: 0.018, longitudeDelta: 0.018)
+        case .close:
+            return MKCoordinateSpan(latitudeDelta: 0.008, longitudeDelta: 0.008)
+        case .street:
+            return MKCoordinateSpan(latitudeDelta: 0.0035, longitudeDelta: 0.0035)
+        }
+    }
+}
+
+private struct MapCameraControls: View {
+    @Binding var selection: MapZoomLevel
+    let followsRoutePosition: Bool
+    let onRecenter: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Picker("Map zoom", selection: $selection) {
+                ForEach(MapZoomLevel.allCases) { zoomLevel in
+                    Text(zoomLevel.title).tag(zoomLevel)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            Button(action: onRecenter) {
+                Image(systemName: followsRoutePosition ? "location.fill" : "location")
+                    .font(.body.weight(.semibold))
+                    .frame(width: 42, height: 34)
+                    .accessibilityLabel(followsRoutePosition ? "Following route position" : "Recenter on route position")
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(followsRoutePosition ? .cyan : .primary)
+            .background(Color(.systemBackground).opacity(0.86), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+        .padding(8)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .shadow(color: .black.opacity(0.12), radius: 14, y: 7)
     }
 }
 
@@ -274,7 +365,7 @@ private struct NearbyContextPanel: View {
                     .foregroundStyle(.secondary)
             }
 
-            PreferenceCommandRow(model: model)
+            GuideConversationRow(model: model)
 
             if showsAudit {
                 AuditPanel(model: model)
@@ -286,50 +377,97 @@ private struct NearbyContextPanel: View {
     }
 }
 
-private struct PreferenceCommandRow: View {
+private struct GuideConversationRow: View {
     @ObservedObject var model: DriveGuideModel
+    @State private var isPressingMic = false
 
     private let demoCommand = DriveGuideModel.demoInterruptionText
 
     var body: some View {
-        Button {
-            model.submitUserUtterance(demoCommand)
-        } label: {
+        VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
-                Image(systemName: "hand.raised.fill")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(.orange)
-                    .frame(width: 20)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(interruptionTitle)
-                        .font(.caption.weight(.semibold))
-                    Text(demoCommand)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
+                Button {} label: {
+                    Image(systemName: model.isListeningForQuestion ? "mic.fill" : "mic.slash.fill")
+                        .font(.caption.weight(.bold))
+                        .frame(width: 34, height: 34)
+                        .foregroundStyle(.white)
+                        .background(model.isListeningForQuestion ? .green : .secondary, in: Circle())
+                        .accessibilityLabel(model.isListeningForQuestion ? "Release to finish voice turn" : "Hold to talk")
                 }
+                .buttonStyle(.plain)
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { _ in
+                            guard !isPressingMic else { return }
+                            isPressingMic = true
+                            model.beginVoiceQuestion()
+                        }
+                        .onEnded { _ in
+                            guard isPressingMic else { return }
+                            isPressingMic = false
+                            model.finishVoiceQuestion()
+                        }
+                )
 
-                Spacer(minLength: 6)
+                TextField("Ask about this stretch", text: $model.questionDraft)
+                    .textInputAutocapitalization(.sentences)
+                    .submitLabel(.send)
+                    .font(.caption)
+                    .padding(.horizontal, 10)
+                    .frame(minHeight: 34)
+                    .background(Color(.systemBackground).opacity(0.72), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .onSubmit(model.submitQuestionDraft)
 
-                Image(systemName: "paperplane.fill")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(.cyan)
+                Button {
+                    model.submitQuestionDraft()
+                } label: {
+                    Image(systemName: "paperplane.fill")
+                        .font(.caption.weight(.bold))
+                        .frame(width: 34, height: 34)
+                        .foregroundStyle(.cyan)
+                        .accessibilityLabel("Send question")
+                }
+                .buttonStyle(.plain)
             }
-            .padding(9)
-            .background(Color(.secondarySystemBackground).opacity(0.82), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+            HStack(spacing: 8) {
+                Image(systemName: model.isListeningForQuestion ? "waveform" : "mic.slash.fill")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(model.isListeningForQuestion ? .green : .secondary)
+
+                Text(statusText)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Spacer(minLength: 4)
+
+                Button {
+                    model.sendCannedInterruption()
+                } label: {
+                    Label("History", systemImage: "hand.raised.fill")
+                        .font(.caption2.weight(.semibold))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.orange)
+                .accessibilityLabel("Ask for the history angle")
+            }
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel("\(interruptionTitle): \(demoCommand)")
+        .padding(9)
+        .background(Color(.secondarySystemBackground).opacity(0.82), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
-    private var interruptionTitle: String {
-        guard model.lastUserUtterance == demoCommand else {
-            return "Interrupt GPT-Realtime-2"
+    private var statusText: String {
+        if model.lastUserUtterance == demoCommand {
+            return "History angle sent"
         }
 
-        return "Interruption sent"
+        if !model.voiceQuestionTranscript.isEmpty {
+            return model.voiceQuestionTranscript
+        }
+
+        return model.voiceQuestionStatus
     }
 }
 

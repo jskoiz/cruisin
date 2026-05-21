@@ -1,198 +1,324 @@
 [
   {
-    "id": "route-001",
-    "label": "Waikiki Beach",
-    "latitude": 21.2766,
-    "longitude": -157.8268,
-    "secondsFromStart": 0
+    "id": "kalakaua-001",
+    "label": "Kalakaua Avenue at Ala Moana Boulevard",
+    "latitude": 21.285546,
+    "longitude": -157.832941,
+    "secondsFromStart": 0.0
   },
   {
-    "id": "route-002",
-    "label": "Duke Kahanamoku Statue",
-    "latitude": 21.2769,
-    "longitude": -157.8259,
-    "secondsFromStart": 8
+    "id": "kalakaua-002",
+    "label": "Kalakaua Avenue at Ala Moana Boulevard",
+    "latitude": 21.284828,
+    "longitude": -157.832516,
+    "secondsFromStart": 13.6
   },
   {
-    "id": "route-003",
+    "id": "kalakaua-003",
+    "label": "Kalakaua Avenue at Ala Moana Boulevard",
+    "latitude": 21.284613,
+    "longitude": -157.832371,
+    "secondsFromStart": 17.8
+  },
+  {
+    "id": "kalakaua-004",
+    "label": "Kalakaua Avenue at Ala Moana Boulevard",
+    "latitude": 21.284247,
+    "longitude": -157.832118,
+    "secondsFromStart": 25.0
+  },
+  {
+    "id": "kalakaua-005",
+    "label": "Kalakaua Avenue at Ala Moana Boulevard",
+    "latitude": 21.284028,
+    "longitude": -157.83198,
+    "secondsFromStart": 29.3
+  },
+  {
+    "id": "kalakaua-006",
+    "label": "Kalakaua Avenue at Ala Moana Boulevard",
+    "latitude": 21.283881,
+    "longitude": -157.831896,
+    "secondsFromStart": 32.0
+  },
+  {
+    "id": "kalakaua-007",
+    "label": "Kalakaua Avenue at Ala Moana Boulevard",
+    "latitude": 21.283747,
+    "longitude": -157.83182,
+    "secondsFromStart": 34.5
+  },
+  {
+    "id": "kalakaua-008",
+    "label": "Kalakaua Avenue at Ala Moana Boulevard",
+    "latitude": 21.283654,
+    "longitude": -157.831767,
+    "secondsFromStart": 36.3
+  },
+  {
+    "id": "kalakaua-009",
+    "label": "Kalakaua Avenue at Ala Moana Boulevard",
+    "latitude": 21.283304,
+    "longitude": -157.831569,
+    "secondsFromStart": 42.9
+  },
+  {
+    "id": "kalakaua-010",
+    "label": "Waikiki Gateway",
+    "latitude": 21.283051,
+    "longitude": -157.831425,
+    "secondsFromStart": 47.6
+  },
+  {
+    "id": "kalakaua-011",
+    "label": "Waikiki Gateway",
+    "latitude": 21.282907,
+    "longitude": -157.831343,
+    "secondsFromStart": 50.3
+  },
+  {
+    "id": "kalakaua-012",
+    "label": "Waikiki Gateway",
+    "latitude": 21.282423,
+    "longitude": -157.831089,
+    "secondsFromStart": 59.3
+  },
+  {
+    "id": "kalakaua-013",
+    "label": "Waikiki Gateway",
+    "latitude": 21.282324,
+    "longitude": -157.831038,
+    "secondsFromStart": 61.1
+  },
+  {
+    "id": "kalakaua-014",
+    "label": "Waikiki Gateway",
+    "latitude": 21.281903,
+    "longitude": -157.830814,
+    "secondsFromStart": 68.9
+  },
+  {
+    "id": "kalakaua-015",
+    "label": "Waikiki Gateway",
+    "latitude": 21.281876,
+    "longitude": -157.8308,
+    "secondsFromStart": 69.4
+  },
+  {
+    "id": "kalakaua-016",
+    "label": "Waikiki Gateway",
+    "latitude": 21.281491,
+    "longitude": -157.83059,
+    "secondsFromStart": 76.5
+  },
+  {
+    "id": "kalakaua-017",
+    "label": "Waikiki Gateway",
+    "latitude": 21.281288,
+    "longitude": -157.830474,
+    "secondsFromStart": 80.4
+  },
+  {
+    "id": "kalakaua-018",
+    "label": "Fort DeRussy Beach Park",
+    "latitude": 21.280191,
+    "longitude": -157.829852,
+    "secondsFromStart": 100.9
+  },
+  {
+    "id": "kalakaua-019",
+    "label": "Fort DeRussy Beach Park",
+    "latitude": 21.280101,
+    "longitude": -157.829795,
+    "secondsFromStart": 102.7
+  },
+  {
+    "id": "kalakaua-020",
+    "label": "Fort DeRussy Beach Park",
+    "latitude": 21.280018,
+    "longitude": -157.829741,
+    "secondsFromStart": 104.3
+  },
+  {
+    "id": "kalakaua-021",
+    "label": "Fort DeRussy Beach Park",
+    "latitude": 21.279869,
+    "longitude": -157.829636,
+    "secondsFromStart": 107.3
+  },
+  {
+    "id": "kalakaua-022",
+    "label": "Fort DeRussy Beach Park",
+    "latitude": 21.279458,
+    "longitude": -157.829302,
+    "secondsFromStart": 115.8
+  },
+  {
+    "id": "kalakaua-023",
+    "label": "Fort DeRussy Beach Park",
+    "latitude": 21.279399,
+    "longitude": -157.829255,
+    "secondsFromStart": 117.0
+  },
+  {
+    "id": "kalakaua-024",
+    "label": "Fort DeRussy Beach Park",
+    "latitude": 21.279369,
+    "longitude": -157.829225,
+    "secondsFromStart": 117.7
+  },
+  {
+    "id": "kalakaua-025",
+    "label": "Fort DeRussy Beach Park",
+    "latitude": 21.278987,
+    "longitude": -157.828818,
+    "secondsFromStart": 126.6
+  },
+  {
+    "id": "kalakaua-026",
+    "label": "Fort DeRussy Beach Park",
+    "latitude": 21.278738,
+    "longitude": -157.828553,
+    "secondsFromStart": 132.5
+  },
+  {
+    "id": "kalakaua-027",
+    "label": "Royal Hawaiian Center",
+    "latitude": 21.27819,
+    "longitude": -157.827931,
+    "secondsFromStart": 145.7
+  },
+  {
+    "id": "kalakaua-028",
+    "label": "Royal Hawaiian Center",
+    "latitude": 21.278049,
+    "longitude": -157.827773,
+    "secondsFromStart": 149.1
+  },
+  {
+    "id": "kalakaua-029",
+    "label": "Royal Hawaiian Center",
+    "latitude": 21.277658,
+    "longitude": -157.827328,
+    "secondsFromStart": 158.5
+  },
+  {
+    "id": "kalakaua-030",
+    "label": "Royal Hawaiian Center",
+    "latitude": 21.277507,
+    "longitude": -157.827157,
+    "secondsFromStart": 162.2
+  },
+  {
+    "id": "kalakaua-031",
     "label": "Moana Surfrider",
-    "latitude": 21.277,
-    "longitude": -157.8279,
-    "secondsFromStart": 16
+    "latitude": 21.276922,
+    "longitude": -157.826503,
+    "secondsFromStart": 176.2
   },
   {
-    "id": "route-004",
-    "label": "Royal Hawaiian",
-    "latitude": 21.2777,
-    "longitude": -157.8299,
-    "secondsFromStart": 24
+    "id": "kalakaua-032",
+    "label": "Moana Surfrider",
+    "latitude": 21.276729,
+    "longitude": -157.826291,
+    "secondsFromStart": 180.8
   },
   {
-    "id": "route-005",
-    "label": "Fort DeRussy",
-    "latitude": 21.2798,
-    "longitude": -157.8344,
-    "secondsFromStart": 34
+    "id": "kalakaua-033",
+    "label": "Moana Surfrider",
+    "latitude": 21.276539,
+    "longitude": -157.826079,
+    "secondsFromStart": 185.3
   },
   {
-    "id": "route-006",
-    "label": "Ala Wai Harbor",
-    "latitude": 21.2837,
-    "longitude": -157.8395,
-    "secondsFromStart": 44
+    "id": "kalakaua-034",
+    "label": "Moana Surfrider",
+    "latitude": 21.276108,
+    "longitude": -157.825644,
+    "secondsFromStart": 195.2
   },
   {
-    "id": "route-007",
-    "label": "Convention Center",
-    "latitude": 21.29,
-    "longitude": -157.8357,
-    "secondsFromStart": 54
+    "id": "kalakaua-035",
+    "label": "Duke Kahanamoku Statue",
+    "latitude": 21.275358,
+    "longitude": -157.824953,
+    "secondsFromStart": 211.6
   },
   {
-    "id": "route-008",
-    "label": "Ala Moana Center",
-    "latitude": 21.2914,
-    "longitude": -157.8426,
-    "secondsFromStart": 64
+    "id": "kalakaua-036",
+    "label": "Duke Kahanamoku Statue",
+    "latitude": 21.275292,
+    "longitude": -157.824883,
+    "secondsFromStart": 213.1
   },
   {
-    "id": "route-009",
-    "label": "Ala Moana Beach Park",
-    "latitude": 21.2852,
-    "longitude": -157.8462,
-    "secondsFromStart": 74
+    "id": "kalakaua-037",
+    "label": "Duke Kahanamoku Statue",
+    "latitude": 21.275125,
+    "longitude": -157.824703,
+    "secondsFromStart": 217.0
   },
   {
-    "id": "route-010",
-    "label": "Magic Island",
-    "latitude": 21.2842,
-    "longitude": -157.8478,
-    "secondsFromStart": 84
+    "id": "kalakaua-038",
+    "label": "Duke Kahanamoku Statue",
+    "latitude": 21.275014,
+    "longitude": -157.82462,
+    "secondsFromStart": 219.3
   },
   {
-    "id": "route-011",
-    "label": "Kewalo Basin",
-    "latitude": 21.2897,
-    "longitude": -157.8584,
-    "secondsFromStart": 96
+    "id": "kalakaua-039",
+    "label": "Duke Kahanamoku Statue",
+    "latitude": 21.274924,
+    "longitude": -157.824553,
+    "secondsFromStart": 221.1
   },
   {
-    "id": "route-012",
-    "label": "Ward Village",
-    "latitude": 21.2946,
-    "longitude": -157.8531,
-    "secondsFromStart": 108
+    "id": "kalakaua-040",
+    "label": "Duke Kahanamoku Statue",
+    "latitude": 21.274686,
+    "longitude": -157.824417,
+    "secondsFromStart": 225.6
   },
   {
-    "id": "route-013",
-    "label": "Kakaako",
-    "latitude": 21.2968,
-    "longitude": -157.8582,
-    "secondsFromStart": 120
+    "id": "kalakaua-041",
+    "label": "Duke Kahanamoku Statue",
+    "latitude": 21.274628,
+    "longitude": -157.82439,
+    "secondsFromStart": 226.6
   },
   {
-    "id": "route-014",
-    "label": "SALT at Our Kakaako",
-    "latitude": 21.2973,
-    "longitude": -157.861,
-    "secondsFromStart": 132
+    "id": "kalakaua-042",
+    "label": "Duke Kahanamoku Statue",
+    "latitude": 21.274434,
+    "longitude": -157.824289,
+    "secondsFromStart": 230.2
   },
   {
-    "id": "route-015",
-    "label": "Kakaako Waterfront",
-    "latitude": 21.2952,
-    "longitude": -157.8677,
-    "secondsFromStart": 144
+    "id": "kalakaua-043",
+    "label": "Duke Kahanamoku Statue",
+    "latitude": 21.273903,
+    "longitude": -157.82399,
+    "secondsFromStart": 240.1
   },
   {
-    "id": "route-016",
-    "label": "Blaisdell Center",
-    "latitude": 21.3009,
-    "longitude": -157.8508,
-    "secondsFromStart": 158
+    "id": "kalakaua-044",
+    "label": "Kuhio Beach",
+    "latitude": 21.273105,
+    "longitude": -157.823584,
+    "secondsFromStart": 254.8
   },
   {
-    "id": "route-017",
-    "label": "Thomas Square",
-    "latitude": 21.3047,
-    "longitude": -157.8509,
-    "secondsFromStart": 170
+    "id": "kalakaua-045",
+    "label": "Kuhio Beach",
+    "latitude": 21.272311,
+    "longitude": -157.823154,
+    "secondsFromStart": 269.6
   },
   {
-    "id": "route-018",
-    "label": "Honolulu Museum of Art",
-    "latitude": 21.3046,
-    "longitude": -157.8489,
-    "secondsFromStart": 182
-  },
-  {
-    "id": "route-019",
-    "label": "Punchbowl approach",
-    "latitude": 21.3099,
-    "longitude": -157.8467,
-    "secondsFromStart": 196
-  },
-  {
-    "id": "route-020",
-    "label": "State Capitol",
-    "latitude": 21.3075,
-    "longitude": -157.857,
-    "secondsFromStart": 210
-  },
-  {
-    "id": "route-021",
-    "label": "Iolani Palace",
-    "latitude": 21.3069,
-    "longitude": -157.8583,
-    "secondsFromStart": 222
-  },
-  {
-    "id": "route-022",
-    "label": "King Kamehameha Statue",
-    "latitude": 21.3055,
-    "longitude": -157.8589,
-    "secondsFromStart": 234
-  },
-  {
-    "id": "route-023",
-    "label": "Kawaiahao Church",
-    "latitude": 21.3043,
-    "longitude": -157.8595,
-    "secondsFromStart": 246
-  },
-  {
-    "id": "route-024",
-    "label": "Aloha Tower",
-    "latitude": 21.3069,
-    "longitude": -157.8657,
-    "secondsFromStart": 260
-  },
-  {
-    "id": "route-025",
-    "label": "Honolulu Harbor",
-    "latitude": 21.3062,
-    "longitude": -157.8701,
-    "secondsFromStart": 274
-  },
-  {
-    "id": "route-026",
-    "label": "Chinatown",
-    "latitude": 21.3114,
-    "longitude": -157.8625,
-    "secondsFromStart": 288
-  },
-  {
-    "id": "route-027",
-    "label": "Hawaii Theatre",
-    "latitude": 21.3119,
-    "longitude": -157.8623,
-    "secondsFromStart": 300
-  },
-  {
-    "id": "route-028",
-    "label": "Foster Botanical Garden",
-    "latitude": 21.316,
-    "longitude": -157.8587,
-    "secondsFromStart": 314
+    "id": "kalakaua-046",
+    "label": "Kalakaua Avenue at Kapahulu Avenue",
+    "latitude": 21.271505,
+    "longitude": -157.822757,
+    "secondsFromStart": 284.3
   }
 ]

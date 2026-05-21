@@ -6,6 +6,8 @@ final class RealtimeAudioPlayer: NSObject {
     var onSpeakingChanged: ((Bool) -> Void)?
     var onPlaybackCompleted: (() -> Void)?
 
+    private let playbackVolume: Float = 0.65
+
     private(set) var isSpeaking = false {
         didSet {
             guard oldValue != isSpeaking else { return }
@@ -51,6 +53,7 @@ final class RealtimeAudioPlayer: NSObject {
             let wavURL = try writeTemporaryWAVFile(from: playablePCMData)
             let player = try AVAudioPlayer(contentsOf: wavURL)
             player.delegate = self
+            player.volume = playbackVolume
             player.prepareToPlay()
 
             audioPlayer = player
@@ -84,7 +87,7 @@ final class RealtimeAudioPlayer: NSObject {
 
     private func configureAudioSession() throws {
         let audioSession = AVAudioSession.sharedInstance()
-        try audioSession.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
+        try audioSession.setCategory(.playAndRecord, mode: .voiceChat, options: [.duckOthers, .defaultToSpeaker, .allowBluetoothHFP])
         try audioSession.setActive(true)
     }
 

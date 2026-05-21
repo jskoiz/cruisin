@@ -34,17 +34,27 @@ final class DriveGuideModel: ObservableObject {
     @Published private(set) var quietMode = false
     @Published private(set) var fallbackReason: String?
     @Published private(set) var realtimeErrorMessage: String?
+    @Published var questionDraft = ""
+    @Published private(set) var voiceQuestionTranscript = ""
+    @Published private(set) var voiceQuestionStatus = "Push-to-talk starts with AI Guide"
+    @Published private(set) var isListeningForQuestion = false
 
     private var simulator: RouteSimulator
     private let engine = NarrationEngine()
     private let narrator: VoiceNarrating
     private let realtimeGuide: RealtimeGuideSessioning?
+    private let voiceQuestionRecorder = VoiceQuestionRecorder()
     private var replayTask: Task<Void, Never>?
     private var realtimeNarrationTask: Task<Void, Never>?
     private var realtimeCancellables = Set<AnyCancellable>()
     private var spokenIDs = Set<String>()
     private var lastSpokenAt: Date?
+    private var lastReplayTickAt: Date?
     private var lastAreaID: String?
+    private var shouldResumeRouteContextAfterQuestion = false
+    private var isStartingVoiceQuestion = false
+    private var shouldFinishVoiceQuestionAfterStart = false
+    private var lastRealtimeContextUpdateAt: Date?
 
     var realtimeStatus: RealtimeConnectionState {
         realtimeState
@@ -102,6 +112,7 @@ final class DriveGuideModel: ObservableObject {
         self.guideVoiceMode = guideVoiceMode
 
         bindRealtimeGuideIfNeeded(resolvedRealtimeGuide)
+        configureVoiceQuestionRecorder()
 
         refreshCandidates(allowSpeech: false)
 
@@ -122,13 +133,16 @@ final class DriveGuideModel: ObservableObject {
     }
 
     func start() {
+        guard !isRunning else { return }
         isRunning = true
+        lastReplayTickAt = Date()
         narrationStatus = "Route replay active"
         ensureReplayTask()
     }
 
     func pause() {
         isRunning = false
+        lastReplayTickAt = nil
         narrationStatus = "Paused"
         narrator.stop()
         cancelRealtimeResponse(updateStatus: false)
@@ -139,6 +153,7 @@ final class DriveGuideModel: ObservableObject {
         spokenIDs.removeAll()
         spokenEvents.removeAll()
         lastSpokenAt = nil
+        lastReplayTickAt = nil
         lastAreaID = nil
         lastSpokenFactID = nil
         syncFromSimulator()
@@ -158,6 +173,95 @@ final class DriveGuideModel: ObservableObject {
         guideVoiceMode = .realtime
     }
 
+    func beginVoiceQuestion() {
+        guard guideVoiceMode == .realtime else {
+            fallbackReason = "Switch to AI Guide before using push-to-talk."
+            voiceQuestionStatus = "AI Guide required"
+            return
+        }
+
+        guard !isListeningForQuestion, !isStartingVoiceQuestion else { return }
+
+        isStartingVoiceQuestion = true
+        shouldFinishVoiceQuestionAfterStart = false
+        voiceQuestionStatus = "Starting push-to-talk"
+        cancelRealtimeResponse(updateStatus: false)
+        publishRealtimeRouteContext(force: true)
+
+        Task { [weak self] in
+            guard let self else { return }
+
+            do {
+                try await voiceQuestionRecorder.start()
+                isStartingVoiceQuestion = false
+                isListeningForQuestion = true
+                voiceQuestionStatus = "Listening - release when done"
+
+                if shouldFinishVoiceQuestionAfterStart {
+                    shouldFinishVoiceQuestionAfterStart = false
+                    finishVoiceQuestion()
+                }
+            } catch {
+                isStartingVoiceQuestion = false
+                shouldFinishVoiceQuestionAfterStart = false
+                isListeningForQuestion = false
+                voiceQuestionStatus = "Voice input unavailable"
+                fallbackReason = error.localizedDescription
+            }
+        }
+    }
+
+    func finishVoiceQuestion() {
+        if isStartingVoiceQuestion {
+            shouldFinishVoiceQuestionAfterStart = true
+            voiceQuestionStatus = "Release detected"
+            return
+        }
+
+        guard isListeningForQuestion else { return }
+
+        voiceQuestionRecorder.finish()
+        voiceQuestionStatus = "Sending voice turn"
+
+        Task { [weak self] in
+            guard let self else { return }
+            try? await Task.sleep(nanoseconds: 250_000_000)
+            isListeningForQuestion = false
+
+            if let realtimeGuide {
+                await realtimeGuide.finishMicrophoneTurn()
+                syncRealtimeGuideState(from: realtimeGuide)
+            }
+
+            if voiceQuestionStatus == "Sending voice turn" {
+                voiceQuestionStatus = "AI Guide answering"
+            }
+        }
+    }
+
+    func cancelVoiceQuestion() {
+        isStartingVoiceQuestion = false
+        shouldFinishVoiceQuestionAfterStart = false
+        isListeningForQuestion = false
+        voiceQuestionRecorder.cancel()
+        voiceQuestionTranscript = ""
+        voiceQuestionStatus = guideVoiceMode == .realtime ? "Hold mic to talk" : "Push-to-talk starts with AI Guide"
+        clearRealtimeMicrophoneBuffer()
+    }
+
+    func submitQuestionDraft() {
+        let trimmedQuestion = questionDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedQuestion.isEmpty else {
+            voiceQuestionStatus = isListeningForQuestion ? "Listening - release when done" : "Hold mic to talk"
+            return
+        }
+
+        questionDraft = ""
+        voiceQuestionTranscript = trimmedQuestion
+        voiceQuestionStatus = "Asking AI Guide"
+        submitUserUtterance(trimmedQuestion)
+    }
+
     func sendCannedInterruption() {
         submitUserUtterance(Self.demoInterruptionText)
     }
@@ -168,10 +272,10 @@ final class DriveGuideModel: ObservableObject {
 
         lastUserUtterance = trimmedText
         narrator.stop()
-        applyPreferenceHints(from: trimmedText)
+        let changedPreferences = applyPreferenceHints(from: trimmedText)
         refreshCandidates(
             allowSpeech: false,
-            holdReason: "Updated guide preference from user utterance"
+            holdReason: changedPreferences ? "Updated guide preference from user utterance" : "Driver question sent to AI Guide"
         )
 
         let snapshot = makeSnapshot()
@@ -194,7 +298,14 @@ final class DriveGuideModel: ObservableObject {
 
         fallbackReason = nil
         realtimeErrorMessage = nil
-        realtimeGuide.cancelCurrentResponse()
+        lastSpokenAt = Date()
+        shouldResumeRouteContextAfterQuestion = isRunning
+        if isListeningForQuestion {
+            isListeningForQuestion = false
+            voiceQuestionRecorder.cancel()
+            voiceQuestionStatus = "Text interruption sent"
+            clearRealtimeMicrophoneBuffer()
+        }
         realtimeNarrationTask?.cancel()
         realtimeNarrationTask = Task { [weak self] in
             await self?.submitRealtimeUtterance(trimmedText, snapshot: snapshot, using: realtimeGuide)
@@ -268,7 +379,7 @@ final class DriveGuideModel: ObservableObject {
         guard replayTask == nil else { return }
         replayTask = Task { [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 1_250_000_000)
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
                 self?.tick()
             }
         }
@@ -277,11 +388,17 @@ final class DriveGuideModel: ObservableObject {
     private func tick() {
         guard isRunning else { return }
 
-        if simulator.advance() {
+        let now = Date()
+        let elapsed = lastReplayTickAt.map { now.timeIntervalSince($0) } ?? 1
+        lastReplayTickAt = now
+
+        if simulator.advance(by: elapsed) {
             syncFromSimulator()
             refreshCandidates(allowSpeech: true)
+            publishRealtimeRouteContext()
         } else {
             isRunning = false
+            lastReplayTickAt = nil
             narrationStatus = "Route complete"
             lastDecisionReason = "Reached the end of the bundled Honolulu demo route"
             updateContextSummary()
@@ -443,7 +560,7 @@ final class DriveGuideModel: ObservableObject {
         using realtimeGuide: RealtimeGuideSessioning
     ) async {
         realtimeState = .speaking
-        narrationStatus = "AI Guide updating preference"
+        narrationStatus = "AI Guide answering"
 
         await realtimeGuide.sendUserQuestion(text, snapshot: snapshot)
 
@@ -452,10 +569,11 @@ final class DriveGuideModel: ObservableObject {
 
         if shouldUseLocalFallback(for: realtimeGuide) {
             fallbackReason = "AI Guide could not handle the interruption; Local Guide preferences were saved."
+            shouldResumeRouteContextAfterQuestion = false
+            voiceQuestionStatus = "AI Guide fallback active"
             narrationStatus = "AI interruption failed"
         } else if realtimeState != .speaking {
-            realtimeState = .connected
-            narrationStatus = "AI Guide ready"
+            resumeRouteContextAfterQuestion()
         }
     }
 
@@ -494,6 +612,7 @@ final class DriveGuideModel: ObservableObject {
     }
 
     private func syncRealtimeGuideState(from realtimeGuide: RealtimeGuideSessioning) {
+        let previousRealtimeState = realtimeState
         realtimeState = realtimeGuide.state
 
         if !realtimeGuide.lastTranscript.isEmpty {
@@ -502,6 +621,7 @@ final class DriveGuideModel: ObservableObject {
 
         if !realtimeGuide.lastUserUtterance.isEmpty {
             lastUserUtterance = realtimeGuide.lastUserUtterance
+            voiceQuestionTranscript = realtimeGuide.lastUserUtterance
         }
 
         let guideSummary = realtimeGuide.lastContextSummary.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -516,6 +636,68 @@ final class DriveGuideModel: ObservableObject {
 
         if realtimeGuide.state == .failed {
             realtimeErrorMessage = guideSummary
+        }
+
+        if guideSummary.contains("Driver voice detected") {
+            voiceQuestionStatus = "Interrupting"
+        } else if guideSummary.contains("Driver voice captured") {
+            voiceQuestionStatus = "AI Guide answering"
+        } else if realtimeGuide.state == .connected, isListeningForQuestion {
+            voiceQuestionStatus = "Listening - release when done"
+        }
+
+        if shouldResumeRouteContextAfterQuestion,
+           previousRealtimeState == .speaking,
+           realtimeGuide.state == .connected {
+            resumeRouteContextAfterQuestion()
+        }
+
+    }
+
+    private func resumeRouteContextAfterQuestion() {
+        shouldResumeRouteContextAfterQuestion = false
+        realtimeState = .connected
+        voiceQuestionStatus = isListeningForQuestion ? "Listening - release when done" : "Hold mic to talk"
+
+        if isRunning {
+            refreshCandidates(
+                allowSpeech: false,
+                holdReason: "Resumed route context after driver question"
+            )
+            narrationStatus = "Route replay active"
+        } else {
+            narrationStatus = "AI Guide ready"
+            updateContextSummary()
+        }
+    }
+
+    private func publishRealtimeRouteContext(force: Bool = false) {
+        guard guideVoiceMode == .realtime, let realtimeGuide else { return }
+        guard realtimeState == .connected || realtimeState == .speaking else { return }
+        guard !shouldUseLocalFallback(for: realtimeGuide) else { return }
+
+        let now = Date()
+        if !force, let lastRealtimeContextUpdateAt, now.timeIntervalSince(lastRealtimeContextUpdateAt) < 2.5 {
+            return
+        }
+
+        lastRealtimeContextUpdateAt = now
+        let snapshot = makeSnapshot()
+
+        Task { [weak self, weak realtimeGuide] in
+            guard let self, let realtimeGuide else { return }
+            await realtimeGuide.updateRouteContext(snapshot: snapshot)
+            self.syncRealtimeGuideState(from: realtimeGuide)
+        }
+    }
+
+    private func clearRealtimeMicrophoneBuffer() {
+        guard guideVoiceMode == .realtime, let realtimeGuide else { return }
+
+        Task { @MainActor [weak self, weak realtimeGuide] in
+            guard let self, let realtimeGuide else { return }
+            await realtimeGuide.clearMicrophoneAudio()
+            self.syncRealtimeGuideState(from: realtimeGuide)
         }
     }
 
@@ -532,17 +714,21 @@ final class DriveGuideModel: ObservableObject {
         if shouldUseLocalFallback(for: realtimeGuide) {
             fallbackReason = realtimeGuide.lastContextSummary.isEmpty ? "AI Guide session entered fallback." : realtimeGuide.lastContextSummary
             narrationStatus = "AI Guide unavailable - local fallback"
+            cancelVoiceQuestion()
         } else {
             if realtimeState == .disconnected || realtimeState == .connecting {
                 realtimeState = .connected
             }
             narrationStatus = isRunning ? "AI Guide active" : "AI Guide ready"
+            publishRealtimeRouteContext(force: true)
+            voiceQuestionStatus = "Hold mic to talk"
         }
     }
 
     private func handleGuideVoiceModeChange() {
         switch guideVoiceMode {
         case .local:
+            cancelVoiceQuestion()
             cancelRealtimeResponse(updateStatus: false)
             realtimeState = .disconnected
             fallbackReason = nil
@@ -553,9 +739,11 @@ final class DriveGuideModel: ObservableObject {
                 realtimeState = .fallback
                 fallbackReason = "AI Guide session is unavailable; AVFoundation fallback is active."
                 narrationStatus = "AI Guide unavailable - local fallback"
+                cancelVoiceQuestion()
             } else if realtimeState == .failed {
                 fallbackReason = "AI Guide failed earlier; select Local Guide or restart the session to retry."
                 narrationStatus = "AI Guide failed - local fallback"
+                cancelVoiceQuestion()
             } else {
                 realtimeState = .connecting
                 fallbackReason = nil
@@ -572,21 +760,45 @@ final class DriveGuideModel: ObservableObject {
         updateContextSummary()
     }
 
-    private func applyPreferenceHints(from text: String) {
+    @discardableResult
+    private func applyPreferenceHints(from text: String) -> Bool {
         var preferences = RealtimeGuidePreferences(
             preferredCategories: preferredCategories.sorted(),
             excludedCategories: excludedCategories.sorted(),
             quietMode: quietMode
         )
-        guard preferences.infer(from: text) else { return }
+        guard preferences.infer(from: text) else { return false }
 
         preferredCategories = Set(preferences.preferredCategories)
         excludedCategories = Set(preferences.excludedCategories)
         quietMode = preferences.quietMode
+        return true
     }
 
     private func updateContextSummary() {
         _ = makeSnapshot()
+    }
+
+    private func configureVoiceQuestionRecorder() {
+        voiceQuestionRecorder.onAudioData = { [weak self] audioData in
+            guard let self else { return }
+
+            Task { @MainActor [weak self] in
+                guard let self, let realtimeGuide else { return }
+                guard self.isListeningForQuestion else { return }
+                await realtimeGuide.appendMicrophoneAudio(audioData)
+                syncRealtimeGuideState(from: realtimeGuide)
+            }
+        }
+
+        voiceQuestionRecorder.onError = { [weak self] message in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.isListeningForQuestion = false
+                self.voiceQuestionStatus = "Voice input unavailable"
+                self.fallbackReason = message
+            }
+        }
     }
 
     private func bindRealtimeGuideIfNeeded(_ realtimeGuide: RealtimeGuideSessioning?) {
