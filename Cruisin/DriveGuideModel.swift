@@ -29,6 +29,8 @@ final class DriveGuideModel: ObservableObject {
     @Published private(set) var lastUserUtterance: String?
     @Published private(set) var lastContextSummary: String?
     @Published private(set) var preferredCategories = Set<String>()
+    @Published private(set) var excludedCategories = Set<String>()
+    @Published private(set) var excludedNearbyCandidateCount = 0
     @Published private(set) var quietMode = false
     @Published private(set) var fallbackReason: String?
     @Published private(set) var realtimeErrorMessage: String?
@@ -56,6 +58,28 @@ final class DriveGuideModel: ObservableObject {
             }
 
         return messages.isEmpty ? nil : messages.joined(separator: " ")
+    }
+
+    var preferenceAuditSummary: String {
+        var pieces: [String] = [
+            preferredCategories.isEmpty ? "Balanced categories" : "Prefers \(preferredCategories.sorted().joined(separator: ", "))"
+        ]
+
+        if excludedCategories.isEmpty {
+            pieces.append("No category skips")
+        } else {
+            pieces.append("Skips \(excludedCategories.sorted().joined(separator: ", "))")
+        }
+
+        pieces.append(quietMode ? "Quiet/short replies" : "Normal length")
+
+        if excludedNearbyCandidateCount > 0 {
+            let categoryText = excludedCategories.sorted().joined(separator: ", ")
+            let noun = excludedNearbyCandidateCount == 1 ? "candidate" : "candidates"
+            pieces.append("Filtered \(excludedNearbyCandidateCount) nearby \(categoryText) \(noun)")
+        }
+
+        return pieces.joined(separator: " | ")
     }
 
     init(
@@ -184,6 +208,7 @@ final class DriveGuideModel: ObservableObject {
 
     func setPreferredCategories(_ categories: Set<String>) {
         preferredCategories = Set(categories.map { $0.lowercased() })
+        excludedCategories.subtract(preferredCategories)
         refreshCandidates(
             allowSpeech: false,
             holdReason: preferredCategories.isEmpty ? "Cleared guide category preference" : "Updated guide category preference"
@@ -231,6 +256,7 @@ final class DriveGuideModel: ObservableObject {
             lastSpokenFactID: lastSpokenFactID,
             lastDecisionReason: lastDecisionReason,
             preferredCategories: preferredCategories.sorted(),
+            excludedCategories: excludedCategories.sorted(),
             quietMode: quietMode
         )
 
@@ -273,11 +299,29 @@ final class DriveGuideModel: ObservableObject {
         holdReason: String = "Speech held until Start or Route Replay"
     ) {
         let now = Date()
-        nearbyCandidates = engine.candidates(
-            near: currentCoordinate,
-            facts: facts,
-            preferredCategories: preferredCategories
-        )
+        if excludedCategories.isEmpty {
+            excludedNearbyCandidateCount = 0
+            nearbyCandidates = engine.candidates(
+                near: currentCoordinate,
+                facts: facts,
+                preferredCategories: preferredCategories
+            )
+        } else {
+            let unfilteredCandidates = engine.candidates(
+                near: currentCoordinate,
+                facts: facts,
+                preferredCategories: preferredCategories
+            )
+            excludedNearbyCandidateCount = unfilteredCandidates.filter { candidate in
+                excludedCategories.contains(candidate.fact.category.lowercased())
+            }.count
+            nearbyCandidates = engine.candidates(
+                near: currentCoordinate,
+                facts: facts,
+                preferredCategories: preferredCategories,
+                excludedCategories: excludedCategories
+            )
+        }
 
         guard allowSpeech else {
             lastDecisionReason = holdReason
@@ -460,16 +504,18 @@ final class DriveGuideModel: ObservableObject {
             lastUserUtterance = realtimeGuide.lastUserUtterance
         }
 
-        if !realtimeGuide.lastContextSummary.isEmpty {
-            lastContextSummary = realtimeGuide.lastContextSummary
+        let guideSummary = realtimeGuide.lastContextSummary.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !guideSummary.isEmpty else { return }
+        guard guideSummary != "Realtime guide idle" else { return }
+
+        if realtimeGuide.isFallbackActive || realtimeGuide.state == .fallback || realtimeGuide.state == .failed {
+            fallbackReason = guideSummary
+        } else if realtimeGuide.state == .connected || realtimeGuide.state == .speaking {
+            lastContextSummary = guideSummary
         }
 
-        if realtimeGuide.isFallbackActive, !realtimeGuide.lastContextSummary.isEmpty {
-            fallbackReason = realtimeGuide.lastContextSummary
-        }
-
-        if realtimeGuide.state == .failed, !realtimeGuide.lastContextSummary.isEmpty {
-            realtimeErrorMessage = realtimeGuide.lastContextSummary
+        if realtimeGuide.state == .failed {
+            realtimeErrorMessage = guideSummary
         }
     }
 
@@ -527,22 +573,16 @@ final class DriveGuideModel: ObservableObject {
     }
 
     private func applyPreferenceHints(from text: String) {
-        let lowercasedText = text.lowercased()
-        var categories = preferredCategories
+        var preferences = RealtimeGuidePreferences(
+            preferredCategories: preferredCategories.sorted(),
+            excludedCategories: excludedCategories.sorted(),
+            quietMode: quietMode
+        )
+        guard preferences.infer(from: text) else { return }
 
-        if lowercasedText.contains("history") {
-            categories.insert("history")
-        }
-
-        if lowercasedText.contains("skip food") || lowercasedText.contains("no food") {
-            categories.remove("food")
-        }
-
-        preferredCategories = categories
-
-        if lowercasedText.contains("keep it short") || lowercasedText.contains("quiet") {
-            quietMode = true
-        }
+        preferredCategories = Set(preferences.preferredCategories)
+        excludedCategories = Set(preferences.excludedCategories)
+        quietMode = preferences.quietMode
     }
 
     private func updateContextSummary() {
@@ -564,6 +604,7 @@ final class DriveGuideModel: ObservableObject {
         realtimeSession.onPreferencesChanged = { [weak self] preferences in
             guard let self else { return }
             self.preferredCategories = Set(preferences.preferredCategories)
+            self.excludedCategories = Set(preferences.excludedCategories)
             self.quietMode = preferences.quietMode
             self.refreshCandidates(
                 allowSpeech: false,

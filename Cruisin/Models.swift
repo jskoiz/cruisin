@@ -75,22 +75,29 @@ struct DriveContextSnapshot: Codable, Hashable {
     let lastSpokenFactID: String?
     let lastDecisionReason: String
     let preferredCategories: [String]
+    let excludedCategories: [String]
     let quietMode: Bool
 
     var summary: String {
         let progressPercent = Int((progress * 100).rounded())
-        let preferenceText = preferredCategories.isEmpty ? "balanced" : preferredCategories.joined(separator: ", ")
-        let quietText = quietMode ? "quiet" : "normal"
+        var preferencePieces = [
+            preferredCategories.isEmpty ? "balanced" : "prefers \(preferredCategories.joined(separator: ", "))"
+        ]
+        if !excludedCategories.isEmpty {
+            preferencePieces.append("skips \(excludedCategories.joined(separator: ", "))")
+        }
+        let voiceText = quietMode ? "quiet" : "normal"
+        let preferenceText = preferencePieces.joined(separator: "; ")
         let nearbyText = nearbyFacts.prefix(3)
             .map { "\($0.name) (\($0.category), \(Int($0.distanceMeters))m)" }
             .joined(separator: "; ")
 
         return [
-            "\(routeLabel) at \(progressPercent)% route",
-            "voice \(quietText)",
-            "prefs \(preferenceText)",
-            "nearby \(nearbyText.isEmpty ? "none" : nearbyText)",
-            "last \(lastDecisionReason)"
+            "Route: \(routeLabel) (\(progressPercent)%)",
+            "Voice: \(voiceText)",
+            "Preference: \(preferenceText)",
+            "Nearby: \(nearbyText.isEmpty ? "none" : nearbyText)",
+            "Decision: \(lastDecisionReason)"
         ].joined(separator: " | ")
     }
 }
