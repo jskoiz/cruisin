@@ -309,6 +309,13 @@ private struct AuditPanel: View {
                     tint: .blue
                 )
                 AuditFieldRow(
+                    title: "Preference state",
+                    value: model.preferenceAuditSummary,
+                    emptyText: "Balanced categories",
+                    systemImage: "slider.horizontal.3",
+                    tint: .green
+                )
+                AuditFieldRow(
                     title: "Context summary",
                     value: model.lastContextSummary,
                     emptyText: "No context summary yet",

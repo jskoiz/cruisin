@@ -29,6 +29,8 @@ final class DriveGuideModel: ObservableObject {
     @Published private(set) var lastUserUtterance: String?
     @Published private(set) var lastContextSummary: String?
     @Published private(set) var preferredCategories = Set<String>()
+    @Published private(set) var excludedCategories = Set<String>()
+    @Published private(set) var excludedNearbyCandidateCount = 0
     @Published private(set) var quietMode = false
     @Published private(set) var fallbackReason: String?
     @Published private(set) var realtimeErrorMessage: String?
@@ -56,6 +58,28 @@ final class DriveGuideModel: ObservableObject {
             }
 
         return messages.isEmpty ? nil : messages.joined(separator: " ")
+    }
+
+    var preferenceAuditSummary: String {
+        var pieces: [String] = [
+            preferredCategories.isEmpty ? "Balanced categories" : "Prefers \(preferredCategories.sorted().joined(separator: ", "))"
+        ]
+
+        if excludedCategories.isEmpty {
+            pieces.append("No category skips")
+        } else {
+            pieces.append("Skips \(excludedCategories.sorted().joined(separator: ", "))")
+        }
+
+        pieces.append(quietMode ? "Quiet/short replies" : "Normal length")
+
+        if excludedNearbyCandidateCount > 0 {
+            let categoryText = excludedCategories.sorted().joined(separator: ", ")
+            let noun = excludedNearbyCandidateCount == 1 ? "candidate" : "candidates"
+            pieces.append("Filtered \(excludedNearbyCandidateCount) nearby \(categoryText) \(noun)")
+        }
+
+        return pieces.joined(separator: " | ")
     }
 
     init(
@@ -184,6 +208,7 @@ final class DriveGuideModel: ObservableObject {
 
     func setPreferredCategories(_ categories: Set<String>) {
         preferredCategories = Set(categories.map { $0.lowercased() })
+        excludedCategories.subtract(preferredCategories)
         refreshCandidates(
             allowSpeech: false,
             holdReason: preferredCategories.isEmpty ? "Cleared guide category preference" : "Updated guide category preference"
@@ -231,6 +256,7 @@ final class DriveGuideModel: ObservableObject {
             lastSpokenFactID: lastSpokenFactID,
             lastDecisionReason: lastDecisionReason,
             preferredCategories: preferredCategories.sorted(),
+            excludedCategories: excludedCategories.sorted(),
             quietMode: quietMode
         )
 
@@ -273,11 +299,29 @@ final class DriveGuideModel: ObservableObject {
         holdReason: String = "Speech held until Start or Route Replay"
     ) {
         let now = Date()
-        nearbyCandidates = engine.candidates(
-            near: currentCoordinate,
-            facts: facts,
-            preferredCategories: preferredCategories
-        )
+        if excludedCategories.isEmpty {
+            excludedNearbyCandidateCount = 0
+            nearbyCandidates = engine.candidates(
+                near: currentCoordinate,
+                facts: facts,
+                preferredCategories: preferredCategories
+            )
+        } else {
+            let unfilteredCandidates = engine.candidates(
+                near: currentCoordinate,
+                facts: facts,
+                preferredCategories: preferredCategories
+            )
+            excludedNearbyCandidateCount = unfilteredCandidates.filter { candidate in
+                excludedCategories.contains(candidate.fact.category.lowercased())
+            }.count
+            nearbyCandidates = engine.candidates(
+                near: currentCoordinate,
+                facts: facts,
+                preferredCategories: preferredCategories,
+                excludedCategories: excludedCategories
+            )
+        }
 
         guard allowSpeech else {
             lastDecisionReason = holdReason
@@ -532,10 +576,16 @@ final class DriveGuideModel: ObservableObject {
 
         if lowercasedText.contains("history") {
             categories.insert("history")
+            excludedCategories.remove("history")
         }
 
-        if lowercasedText.contains("skip food") || lowercasedText.contains("no food") {
+        if lowercasedText.contains("skip food")
+            || lowercasedText.contains("no food")
+            || lowercasedText.contains("not food")
+            || lowercasedText.contains("don't mention food")
+            || lowercasedText.contains("dont mention food") {
             categories.remove("food")
+            excludedCategories.insert("food")
         }
 
         preferredCategories = categories
@@ -564,6 +614,7 @@ final class DriveGuideModel: ObservableObject {
         realtimeSession.onPreferencesChanged = { [weak self] preferences in
             guard let self else { return }
             self.preferredCategories = Set(preferences.preferredCategories)
+            self.excludedCategories = Set(preferences.excludedCategories)
             self.quietMode = preferences.quietMode
             self.refreshCandidates(
                 allowSpeech: false,
