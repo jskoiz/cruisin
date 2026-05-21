@@ -460,16 +460,18 @@ final class DriveGuideModel: ObservableObject {
             lastUserUtterance = realtimeGuide.lastUserUtterance
         }
 
-        if !realtimeGuide.lastContextSummary.isEmpty {
-            lastContextSummary = realtimeGuide.lastContextSummary
+        let guideSummary = realtimeGuide.lastContextSummary.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !guideSummary.isEmpty else { return }
+        guard guideSummary != "Realtime guide idle" else { return }
+
+        if realtimeGuide.isFallbackActive || realtimeGuide.state == .fallback || realtimeGuide.state == .failed {
+            fallbackReason = guideSummary
+        } else if realtimeGuide.state == .connected || realtimeGuide.state == .speaking {
+            lastContextSummary = guideSummary
         }
 
-        if realtimeGuide.isFallbackActive, !realtimeGuide.lastContextSummary.isEmpty {
-            fallbackReason = realtimeGuide.lastContextSummary
-        }
-
-        if realtimeGuide.state == .failed, !realtimeGuide.lastContextSummary.isEmpty {
-            realtimeErrorMessage = realtimeGuide.lastContextSummary
+        if realtimeGuide.state == .failed {
+            realtimeErrorMessage = guideSummary
         }
     }
 
