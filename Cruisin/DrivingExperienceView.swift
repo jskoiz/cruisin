@@ -92,8 +92,13 @@ private struct RouteStatusHeader: View {
                         .foregroundStyle(model.isRunning ? .green : .orange)
                         .labelStyle(.titleAndIcon)
 
-                    RealtimeStatusBadge(status: String(describing: model.realtimeStatus))
+                    RealtimeStatusBadge(
+                        state: model.realtimeStatus,
+                        mode: model.guideVoiceMode,
+                        fallbackMessage: model.fallbackErrorState
+                    )
                 }
+                .frame(maxWidth: 190, alignment: .trailing)
             }
 
             GuideModePicker(selection: $model.guideVoiceMode)
@@ -131,64 +136,107 @@ private struct GuideModePicker: View {
 }
 
 private struct RealtimeStatusBadge: View {
-    let status: String
+    let state: RealtimeConnectionState
+    let mode: GuideVoiceMode
+    let fallbackMessage: String?
 
     var body: some View {
-        Label("GPT-Realtime-2 \(title)", systemImage: symbol)
-            .font(.caption2.weight(.bold))
-            .foregroundStyle(color)
-            .lineLimit(1)
-            .minimumScaleFactor(0.72)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 5)
-            .background(color.opacity(0.14), in: Capsule())
-            .accessibilityLabel("GPT-Realtime-2 status \(title)")
+        VStack(alignment: .trailing, spacing: 3) {
+            Label("GPT-Realtime-2 \(display.title)", systemImage: display.symbol)
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(display.tint)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+                .background(display.tint.opacity(0.14), in: Capsule())
+
+            Text(display.detail)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.trailing)
+                .lineLimit(2)
+                .minimumScaleFactor(0.78)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("GPT-Realtime-2 \(display.title). \(display.detail)")
     }
 
-    private var normalizedStatus: String {
-        let cleaned = status
-            .replacingOccurrences(of: "Optional(", with: "")
-            .replacingOccurrences(of: ")", with: "")
+    private var display: RealtimeStatusDisplay {
+        RealtimeStatusDisplay(state: state, mode: mode, fallbackMessage: fallbackMessage)
+    }
+}
+
+private struct RealtimeStatusDisplay {
+    let title: String
+    let detail: String
+    let symbol: String
+    let tint: Color
+
+    init(state: RealtimeConnectionState, mode: GuideVoiceMode, fallbackMessage: String?) {
+        switch state {
+        case .connecting:
+            self.init(
+                title: "Connecting",
+                detail: "Opening the live voice session",
+                symbol: "antenna.radiowaves.left.and.right",
+                tint: .blue
+            )
+        case .connected:
+            self.init(
+                title: "Connected",
+                detail: "Realtime voice is ready",
+                symbol: "checkmark.circle.fill",
+                tint: .green
+            )
+        case .speaking:
+            self.init(
+                title: "Speaking",
+                detail: "Speaking from compact route context",
+                symbol: "waveform.circle.fill",
+                tint: .cyan
+            )
+        case .fallback:
+            self.init(
+                title: "Fallback",
+                detail: RealtimeStatusDisplay.fallbackDetail(from: fallbackMessage),
+                symbol: "arrow.triangle.2.circlepath.circle.fill",
+                tint: .orange
+            )
+        case .failed:
+            self.init(
+                title: "Error",
+                detail: "Local voice fallback is active",
+                symbol: "exclamationmark.triangle.fill",
+                tint: .red
+            )
+        case .disconnected:
+            self.init(
+                title: mode == .realtime ? "Disconnected" : "Standby",
+                detail: mode == .realtime ? "Realtime voice is offline" : "Local Guide selected",
+                symbol: mode == .realtime ? "xmark.circle.fill" : "speaker.wave.2.fill",
+                tint: .secondary
+            )
+        }
+    }
+
+    private init(title: String, detail: String, symbol: String, tint: Color) {
+        self.title = title
+        self.detail = detail
+        self.symbol = symbol
+        self.tint = tint
+    }
+
+    private static func fallbackDetail(from message: String?) -> String {
+        let normalizedMessage = message?
             .trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased()
+            .lowercased() ?? ""
 
-        if cleaned.contains("disconnect") || cleaned.isEmpty { return "disconnected" }
-        if cleaned.contains("speaking") { return "speaking" }
-        if cleaned.contains("fallback") { return "fallback" }
-        if cleaned.contains("error") { return "error" }
-        if cleaned.contains("connected") { return "connected" }
-        return cleaned
-    }
-
-    private var title: String {
-        switch normalizedStatus {
-        case "connected": return "Connected"
-        case "speaking": return "Speaking"
-        case "fallback": return "Fallback"
-        case "error": return "Error"
-        case "disconnected": return "Disconnected"
-        default: return normalizedStatus.capitalized
+        if normalizedMessage.contains("openai_api_key") || normalizedMessage.contains("api key") {
+            return "No key. Local Guide fallback active"
         }
-    }
 
-    private var symbol: String {
-        switch normalizedStatus {
-        case "connected": return "checkmark.circle.fill"
-        case "speaking": return "waveform.circle.fill"
-        case "fallback": return "arrow.triangle.2.circlepath.circle.fill"
-        case "error": return "exclamationmark.triangle.fill"
-        default: return "xmark.circle.fill"
-        }
-    }
-
-    private var color: Color {
-        switch normalizedStatus {
-        case "connected": return .green
-        case "speaking": return .cyan
-        case "fallback": return .orange
-        case "error": return .red
-        default: return .secondary
-        }
+        return "Local Guide fallback active"
     }
 }
 
@@ -241,7 +289,7 @@ private struct NearbyContextPanel: View {
 private struct PreferenceCommandRow: View {
     @ObservedObject var model: DriveGuideModel
 
-    private let demoCommand = "Skip food. Give me the history angle, and keep it short."
+    private let demoCommand = DriveGuideModel.demoInterruptionText
 
     var body: some View {
         Button {
@@ -254,7 +302,7 @@ private struct PreferenceCommandRow: View {
                     .frame(width: 20)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Interrupt / preference")
+                    Text(interruptionTitle)
                         .font(.caption.weight(.semibold))
                     Text(demoCommand)
                         .font(.caption2)
@@ -273,7 +321,15 @@ private struct PreferenceCommandRow: View {
             .background(Color(.secondarySystemBackground).opacity(0.82), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Send demo preference command")
+        .accessibilityLabel("\(interruptionTitle): \(demoCommand)")
+    }
+
+    private var interruptionTitle: String {
+        guard model.lastUserUtterance == demoCommand else {
+            return "Interrupt GPT-Realtime-2"
+        }
+
+        return "Interruption sent"
     }
 }
 
@@ -297,14 +353,15 @@ private struct AuditPanel: View {
                 AuditFieldRow(
                     title: "Model transcript",
                     value: model.lastModelTranscript,
-                    emptyText: "No model transcript yet",
+                    emptyText: "Waiting for GPT-Realtime-2 transcript",
                     systemImage: "text.bubble.fill",
-                    tint: .cyan
+                    tint: .cyan,
+                    lineLimit: 4
                 )
                 AuditFieldRow(
                     title: "User utterance",
                     value: model.lastUserUtterance,
-                    emptyText: "No user utterance yet",
+                    emptyText: "No interruption sent",
                     systemImage: "person.wave.2.fill",
                     tint: .blue
                 )
@@ -318,16 +375,19 @@ private struct AuditPanel: View {
                 AuditFieldRow(
                     title: "Context summary",
                     value: model.lastContextSummary,
-                    emptyText: "No context summary yet",
+                    emptyText: "Route context will appear when the guide starts",
                     systemImage: "doc.text.magnifyingglass",
-                    tint: .purple
+                    tint: .purple,
+                    lineLimit: 4
                 )
                 AuditFieldRow(
                     title: "Fallback / error",
                     value: model.fallbackErrorState,
-                    emptyText: "None reported",
+                    emptyText: "No fallback active",
                     systemImage: "exclamationmark.triangle.fill",
-                    tint: .orange
+                    tint: .orange,
+                    lineLimit: 3,
+                    valueTransform: Self.fallbackDisplayValue
                 )
             }
 
@@ -355,6 +415,20 @@ private struct AuditPanel: View {
             }
         }
     }
+
+    private static func fallbackDisplayValue(_ value: String) -> String {
+        let normalizedValue = value.lowercased()
+
+        if normalizedValue.contains("openai_api_key") || normalizedValue.contains("api key") {
+            return "No OPENAI_API_KEY found. Local Guide fallback is speaking the route."
+        }
+
+        if normalizedValue.contains("websocket") || normalizedValue.contains("network") {
+            return "Realtime connection failed. Local Guide fallback is speaking the route."
+        }
+
+        return value
+    }
 }
 
 private struct AuditFieldRow: View {
@@ -363,6 +437,8 @@ private struct AuditFieldRow: View {
     let emptyText: String
     let systemImage: String
     let tint: Color
+    var lineLimit = 2
+    var valueTransform: (String) -> String = { $0 }
 
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
@@ -377,15 +453,17 @@ private struct AuditFieldRow: View {
                     .foregroundStyle(.secondary)
                 Text(displayValue)
                     .font(.caption)
-                    .lineLimit(2)
+                    .lineLimit(lineLimit)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .padding(.vertical, 2)
     }
 
     private var displayValue: String {
         let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return trimmed.isEmpty ? emptyText : trimmed
+        return trimmed.isEmpty ? emptyText : valueTransform(trimmed)
     }
 }
 

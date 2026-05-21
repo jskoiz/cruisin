@@ -369,7 +369,7 @@ private struct GuideContextPayload: Encodable {
     var auditSummary: String {
         let progressText = progress.map { "\(Int(($0 * 100).rounded()))%" } ?? "unknown progress"
         let factText = topFacts.first.map { "\($0.name) (\($0.category))" } ?? "no nearby facts"
-        return "\(routeLabel), \(progressText), \(factText), \(preferences.auditSummary)"
+        return "Route: \(routeLabel) (\(progressText)) | Top fact: \(factText) | Preference: \(preferences.auditSummary)"
     }
 }
 

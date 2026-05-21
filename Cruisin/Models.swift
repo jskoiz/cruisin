@@ -86,17 +86,18 @@ struct DriveContextSnapshot: Codable, Hashable {
         if !excludedCategories.isEmpty {
             preferencePieces.append("skips \(excludedCategories.joined(separator: ", "))")
         }
-        let quietText = quietMode ? "quiet" : "normal"
+        let voiceText = quietMode ? "quiet" : "normal"
+        let preferenceText = preferencePieces.joined(separator: "; ")
         let nearbyText = nearbyFacts.prefix(3)
             .map { "\($0.name) (\($0.category), \(Int($0.distanceMeters))m)" }
             .joined(separator: "; ")
 
         return [
-            "\(routeLabel) at \(progressPercent)% route",
-            "voice \(quietText)",
-            "prefs \(preferencePieces.joined(separator: "; "))",
-            "nearby \(nearbyText.isEmpty ? "none" : nearbyText)",
-            "last \(lastDecisionReason)"
+            "Route: \(routeLabel) (\(progressPercent)%)",
+            "Voice: \(voiceText)",
+            "Preference: \(preferenceText)",
+            "Nearby: \(nearbyText.isEmpty ? "none" : nearbyText)",
+            "Decision: \(lastDecisionReason)"
         ].joined(separator: " | ")
     }
 }
