@@ -177,6 +177,14 @@ Local demo artifacts, intentionally kept under ignored `.derivedData/`:
 - `.derivedData/demo-artifacts/ai-guide-interruption-audit.jpg`
 - `.derivedData/demo-artifacts/fallback-no-openai-key.jpg`
 
+Build the repeatable local submission pack after the video and screenshots exist:
+
+```sh
+python3 Scripts/package_voice_hack_night.py
+```
+
+The script rebuilds ignored `dist/voice-hack-night/`, copies only video and screenshot files from ignored `.derivedData/demo-artifacts/`, extracts this README's `Application Materials` section into `application-answers.md`, writes `manifest.json`, and writes SHA-256 hashes to `CHECKSUMS.txt`. It also verifies `.derivedData/`, `dist/`, `.env`, `.env.local`, and local secret config paths are protected by `.gitignore` before packaging.
+
 Treat AI Guide Mode validation separately: launch with an ignored `OPENAI_API_KEY`, confirm `gpt-realtime-2` speaks from compact context, verify the interruption behavior, then confirm Local Guide/AVFoundation fallback still works with the key removed.
 
 ## Risk And Fallback Notes
