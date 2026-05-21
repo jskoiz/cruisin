@@ -447,7 +447,7 @@ final class RealtimeGuideSession: ObservableObject, RealtimeGuideSessioning {
     }
 }
 
-private struct GuideContextPayload: Encodable {
+struct GuideContextPayload: Encodable {
     let routeLabel: String
     let coordinate: GuideCoordinate?
     let progress: Double?
@@ -485,7 +485,7 @@ private struct GuideContextPayload: Encodable {
             "reason"
         ]) ?? "No current decision reason provided"
         self.lastSpokenFact = reader.lastSpokenFact()
-        self.topFacts = reader.topFacts(preferences: mergedPreferences)
+        self.topFacts = StagedRealtimeContext(snapshot: snapshot, preferences: mergedPreferences).topFacts.map(GuideFact.init(context:))
     }
 
     var compactJSONString: String {
@@ -507,22 +507,27 @@ private struct GuideContextPayload: Encodable {
     }
 }
 
-private struct GuideCoordinate: Encodable {
+struct GuideCoordinate: Encodable {
     let latitude: Double
     let longitude: Double
 }
 
-private struct GuideFact: Encodable {
+struct GuideFact: Encodable {
     let id: String
     let name: String
     let category: String
+    let subcategory: String?
+    let tags: [String]
     let distanceMeters: Int?
     let rankScore: Double?
     let reason: String?
+    let auditReasons: [String]
     let narration: String
+    let sourceConfidence: Double?
+    let sourceURLs: [String]
 }
 
-private struct LastSpokenFact: Encodable {
+struct LastSpokenFact: Encodable {
     let id: String?
     let name: String?
     let text: String?
@@ -700,10 +705,15 @@ private struct SnapshotReader {
                 id: candidate.fact.id,
                 name: candidate.fact.name,
                 category: candidate.fact.category,
+                subcategory: candidate.fact.subcategory,
+                tags: candidate.fact.tags,
                 distanceMeters: Int(candidate.distanceMeters.rounded()),
                 rankScore: candidate.rankScore,
                 reason: candidate.reason,
-                narration: candidate.fact.narration
+                auditReasons: candidate.auditReasons,
+                narration: candidate.fact.narration,
+                sourceConfidence: candidate.fact.sourceConfidence,
+                sourceURLs: candidate.fact.sourceURLs
             )
         }
 
@@ -712,10 +722,15 @@ private struct SnapshotReader {
                 id: fact.id,
                 name: fact.name,
                 category: fact.category,
+                subcategory: fact.subcategory,
+                tags: fact.tags,
                 distanceMeters: nil,
                 rankScore: Double(fact.priority),
                 reason: nil,
-                narration: fact.narration
+                auditReasons: ["bundled fact, priority \(fact.priority)"],
+                narration: fact.narration,
+                sourceConfidence: fact.sourceConfidence,
+                sourceURLs: fact.sourceURLs
             )
         }
 
@@ -734,10 +749,15 @@ private struct SnapshotReader {
             id: id,
             name: name,
             category: category,
+            subcategory: string(named: "subcategory", in: factValues),
+            tags: stringArray(named: "tags", in: factValues),
             distanceMeters: double(named: "distanceMeters", in: values).map { Int($0.rounded()) },
             rankScore: double(named: "rankScore", in: values),
             reason: string(named: "reason", in: values),
-            narration: narration
+            auditReasons: stringArray(named: "auditReasons", in: values),
+            narration: narration,
+            sourceConfidence: double(named: "sourceConfidence", in: factValues),
+            sourceURLs: stringArray(named: "sourceURLs", in: factValues)
         )
     }
 
@@ -777,5 +797,39 @@ private struct SnapshotReader {
         }
 
         return nil
+    }
+
+    private static func stringArray(named key: String, in values: [String: Any]) -> [String] {
+        guard let value = values[key] else { return [] }
+
+        if let strings = value as? [String] {
+            return strings
+        }
+
+        let mirror = Mirror(reflecting: value)
+        if mirror.displayStyle == .collection {
+            return mirror.children.compactMap { $0.value as? String }
+        }
+
+        return []
+    }
+}
+
+private extension GuideFact {
+    init(context: FactContext) {
+        self.init(
+            id: context.id,
+            name: context.name,
+            category: context.category,
+            subcategory: context.subcategory,
+            tags: context.tags,
+            distanceMeters: Int(context.distanceMeters.rounded()),
+            rankScore: context.rankScore,
+            reason: context.reason,
+            auditReasons: context.auditReasons,
+            narration: context.narration,
+            sourceConfidence: context.sourceConfidence,
+            sourceURLs: context.sourceURLs
+        )
     }
 }

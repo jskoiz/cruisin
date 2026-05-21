@@ -2,11 +2,11 @@
 
 Native SwiftUI voice-guide prototype for a Kalakaua Avenue Honolulu route replay.
 
-Cruisin launches directly into a driving screen with a MapKit map, simulated route position, nearby local facts, narration status, Start/Pause/Replay controls, and an audit panel showing why narration was or was not selected. For OpenAI Voice Hack Night, the current submission adds AI Guide Mode: the bundled Kalakaua Avenue route replay ranks nearby local facts, streams compact route/context state into OpenAI Realtime with `gpt-realtime-2`, and lets the model speak concise narration while preserving local fallback paths.
+Cruisin launches directly into a driving screen with a MapKit map, simulated route position, nearby local facts, narration status, Start/Pause/Replay controls, and an audit panel showing why narration was or was not selected. For OpenAI Voice Hack Night, the current submission adds AI Guide Mode: the bundled Kalakaua Avenue route replay ranks nearby local facts, streams compact route/context state into OpenAI Realtime with `gpt-realtime`, and lets the model speak concise narration while preserving local fallback paths.
 
 ## Event Mode Boundaries
 
-- AI Guide Mode uses OpenAI Realtime with `gpt-realtime-2` for live spoken narration over the simulated Honolulu route. It should send only compact context: current route label, nearby ranked facts, recent narration state, and any driver preference or question such as "skip food," "history angle," or "what am I passing now?"
+- AI Guide Mode uses OpenAI Realtime with `gpt-realtime` for live spoken narration over the simulated Honolulu route. It should send only compact context: current route label, nearby ranked facts, recent narration state, and any driver preference or question such as "skip food," "history angle," or "what am I passing now?"
 - AI Guide Mode uses push-to-talk interruption for the demo: when the driver presses and holds the mic, the app pauses any current AI audio, streams that short voice turn to Realtime, and treats release as the end of the question so the guide can answer and continue from the simulated position after the interruption.
 - Local Guide mode keeps the same route replay, bundled Honolulu facts, local ranking, cooldowns, spoken-ID dedupe, and audit panel without requiring OpenAI network access.
 - The AVFoundation fallback is the local speech boundary. When AI Guide Mode is unavailable, disabled, interrupted by missing secrets, or blocked by network/API failure, narration should fall back to `AVSpeechSynthesizer` speaking selected local facts.
@@ -33,18 +33,25 @@ Local Guide mode and the AVFoundation fallback do not require an OpenAI key. If 
 
 ## Data Pack
 
-The generated seed pack currently contains 65 Honolulu-area facts/POIs and 46 road-following Kalakaua Avenue replay route waypoints. Every fact has:
+The generated seed pack currently contains 50 strict Kalakaua Avenue / Waikiki Beach facts and 46 road-following Kalakaua Avenue replay route waypoints. Every fact has:
 
 - stable `id` for dedupe,
-- `name`, `category`, coordinates, and priority,
+- `name`, `category`, optional `subcategory`, tags, coordinates, and priority,
 - short narration text,
-- `sourceName` and `sourceURL` attribution.
+- `sourceName`, `sourceURL`, `sourceURLs`, and `sourceConfidence` attribution,
+- ranking fields for cultural/historic importance, visual prominence, drive-by value, sensitivity, safety flags, evergreen/freshness, and audit metadata.
+- scope fields for review: `addressOrFrontage`, `onKalakaua`, `onWaikikiBeach`, `scopeDecision`, and `scopeNotes`.
+- optional event fields for time-sensitive entries: `eventStartDate`, `eventEndDate`, and `recurrence`.
 
 Regenerate the bundled resources:
 
 ```sh
 python3 Scripts/generate_honolulu_seed.py
 ```
+
+The generator is offline-first: it normalizes static seed facts, assigns source-quality/value defaults, dedupes by canonicalized name and coordinates, and writes both `HonoluluFacts.json` and the human-reviewable `HonoluluFactsReview.csv`. The current seed source is intentionally narrow: a fact must be literally on Kalakaua Avenue, on Waikiki Beach/Kuhio Beach, or a beach-edge surf/reef/shoreline feature directly visible from that corridor. Its extension points are source-shaped so later agents can add OSM/Overpass, Wikidata/Wikipedia, official civic/park/museum/historic-register sources, or local culture/food/music/architecture feeds without changing the app runtime contract.
+
+Runtime ranking is explainable. `NarrationEngine` scores nearby facts with intrinsic value, preference match, proximity, route relevance, novelty, source confidence, visual prominence, drive-by value, quiet-mode interruption cost, and safety/sensitivity penalties. Each candidate carries score components plus short audit reasons; the realtime payload sends only the compact top-ranked facts and instructs the model to use only those staged facts.
 
 The app does not fetch live POI, route, navigation, traffic, or map-search data at runtime after these files exist in `Cruisin/`. AI Guide Mode still makes OpenAI Realtime calls when enabled with a key.
 
@@ -110,12 +117,12 @@ If the key is blank, expired, or the Realtime session cannot connect, keep the s
 Run this as a 60-90 second event demo:
 
 1. Launch the app. The first screen is the driving surface, not a landing page.
-2. Select `AI Guide`, confirm `GPT-Realtime-2 Connected`, then tap `Replay` or `Start`.
+2. Select `AI Guide`, confirm `GPT-Realtime Connected`, then tap `Replay` or `Start`.
 3. Show the moving car marker, cyan Honolulu route, nearby POI pins, and ranked `Nearby Context` list.
-4. Let `gpt-realtime-2` speak one concise route-context narration.
+4. Let `gpt-realtime` speak one concise route-context narration.
 5. Interrupt by holding the mic while speaking, or tap the canned command: `Skip food. Give me the history angle, and keep it short.`
 6. Point to the audit panel: model transcript, user utterance, compact context summary, ranked candidates, cooldown reason, and fallback/error state.
-7. Relaunch without `OPENAI_API_KEY` or switch to Local Guide to show `GPT-Realtime-2 Fallback` plus AVFoundation local narration.
+7. Relaunch without `OPENAI_API_KEY` or switch to Local Guide to show `GPT-Realtime Fallback` plus AVFoundation local narration.
 
 ## 90-Second Voice Hack Night Script
 
@@ -123,9 +130,9 @@ Run this as a 60-90 second event demo:
 
 10-25 seconds: Select `AI Guide`, tap `Replay`, and point out the moving route marker plus nearby context. "The app ranks bundled Honolulu facts near the current route position and keeps an audit trail of selection and cooldown decisions."
 
-25-45 seconds: Let `gpt-realtime-2` speak one concise fact from the current compact context. "Realtime gets the route label, top ranked facts, cooldown state, and recent narration, not the whole data pack."
+25-45 seconds: Let `gpt-realtime` speak one concise fact from the current compact context. "Realtime gets the route label, top ranked facts, cooldown state, and recent narration, not the whole data pack."
 
-45-65 seconds: Press and hold the mic, or tap the canned interruption. "Now I interrupt with: skip food, give me the history angle, and keep it short. `gpt-realtime-2` pivots while the route replay keeps moving."
+45-65 seconds: Press and hold the mic, or tap the canned interruption. "Now I interrupt with: skip food, give me the history angle, and keep it short. `gpt-realtime` pivots while the route replay keeps moving."
 
 65-80 seconds: Point to the audit panel. "This is the context ledger: model transcript, user utterance, ranked candidates, distance/category reasons, cooldown decisions, and fallback status."
 
@@ -135,7 +142,7 @@ Run this as a 60-90 second event demo:
 
 Short one-liner:
 
-Cruisin is a native iOS realtime AI guide that uses `gpt-realtime-2` to narrate a simulated Honolulu drive from compact local route context, with an auditable Local Guide fallback.
+Cruisin is a native iOS realtime AI guide that uses `gpt-realtime` to narrate a simulated Honolulu drive from compact local route context, with an auditable Local Guide fallback.
 
 Copy-pastable answer:
 
@@ -145,13 +152,13 @@ Repo: https://github.com/jskoiz/cruisin
 
 Demo video or live demo link: pending external task. The local capture exists at `.derivedData/demo-artifacts/cruisin-ai-guide-demo-89s.mp4`, but no public upload/share link has been created yet.
 
-Cruisin is a native SwiftUI iOS prototype for OpenAI Voice Hack Night. It replays a simulated Honolulu route, ranks bundled nearby facts, and sends compact route context to OpenAI Realtime with `gpt-realtime-2` so the guide can speak concise narration.
+Cruisin is a native SwiftUI iOS prototype for OpenAI Voice Hack Night. It replays a simulated Honolulu route, ranks bundled nearby facts, and sends compact route context to OpenAI Realtime with `gpt-realtime` so the guide can speak concise narration.
 
-What I am building with OpenAI realtime models: AI Guide Mode, a spoken route guide that can respond to driver questions while the simulated drive continues. In the demo, push-to-talk can interrupt the guide with "Skip food. Give me the history angle, and keep it short," and `gpt-realtime-2` uses the current route context plus local preferences to answer briefly.
+What I am building with OpenAI realtime models: AI Guide Mode, a spoken route guide that can respond to driver questions while the simulated drive continues. In the demo, push-to-talk can interrupt the guide with "Skip food. Give me the history angle, and keep it short," and `gpt-realtime` uses the current route context plus local preferences to answer briefly.
 
 Relevant links: the public repo is https://github.com/jskoiz/cruisin. The demo video link is still an external upload/share task; the current local demo artifacts are under ignored `.derivedData/demo-artifacts/`.
 
-Models used: OpenAI Realtime with `gpt-realtime-2`.
+Models used: OpenAI Realtime with `gpt-realtime`.
 
 Scope and safety: the demo uses simulated route replay only. It is not live driving, not turn-by-turn navigation, not traffic-aware, not CarPlay, and not a backend or scraping system. If credentials, Wi-Fi, or API access fail, the same route replay continues in Local Guide mode with AVFoundation speech.
 
@@ -166,9 +173,9 @@ Local route replay, AI Guide Mode, interruption, and AVFoundation fallback were 
 - For this submission cleanup pass, Build iOS Apps/XcodeBuildMCP `build_sim` was rerun from `/Users/jk/Desktop/cruisin/Cruisin.xcodeproj` with scheme `Cruisin` on iPhone 17 Pro Max iOS 26.5 and succeeded.
 - Build iOS Apps/XcodeBuildMCP built and launched `Cruisin` from `/Users/jk/Desktop/cruisin/Cruisin.xcodeproj` on iPhone 17 Pro Max iOS 26.5 with bundle `com.avmillabs.cruisin`.
 - Local Guide visible flow: tapping `Start` moved the route from Waikiki toward Fort DeRussy, changed status to `Live replay`, showed `Speaking: Waikiki`, updated nearby candidates, and displayed cooldown/context audit rows.
-- AI Guide visible flow: launching with `SIMCTL_CHILD_OPENAI_API_KEY` populated from ignored `.env`, selecting `AI Guide`, and tapping `Start` showed `GPT-Realtime-2 Connected`, then `GPT-Realtime-2 Speaking`, with a model transcript generated from the route context.
+- AI Guide visible flow: launching with `SIMCTL_CHILD_OPENAI_API_KEY` populated from ignored `.env`, selecting `AI Guide`, and tapping `Start` showed `GPT-Realtime Connected`, then `GPT-Realtime Speaking`, with a model transcript generated from the route context.
 - Interruption visible flow: using AI Guide push-to-talk, or tapping the canned command, records `Skip food. Give me the history angle, and keep it short.` in the audit panel and updates context preferences toward history/quiet guidance.
-- Fallback visible flow: relaunching without `OPENAI_API_KEY` showed `GPT-Realtime-2 Fallback`, reported the missing environment variable in the audit panel, and continued replay with `Local fallback: Waikiki`.
+- Fallback visible flow: relaunching without `OPENAI_API_KEY` showed `GPT-Realtime Fallback`, reported the missing environment variable in the audit panel, and continued replay with `Local fallback: Waikiki`.
 
 The merged submission state was revalidated from `/Users/jk/Desktop/cruisin` on May 20, 2026 HST / May 21, 2026 UTC:
 
@@ -188,7 +195,7 @@ The push-to-talk demo simplification was revalidated from `/Users/jk/.codex/work
 
 - Build iOS Apps/XcodeBuildMCP `build_sim` succeeded on iPhone 17 Pro Max iOS Simulator.
 - Build iOS Apps/XcodeBuildMCP `test_sim` succeeded with 6 logic tests.
-- Relaunching with `SIMCTL_CHILD_OPENAI_API_KEY` populated from ignored `.env`, selecting `AI Guide`, and tapping `Start` showed `GPT-Realtime-2 Speaking` while the mic stayed off at `Hold mic to talk`; no self-interruption was visible in the user utterance audit row.
+- Relaunching with `SIMCTL_CHILD_OPENAI_API_KEY` populated from ignored `.env`, selecting `AI Guide`, and tapping `Start` showed `GPT-Realtime Speaking` while the mic stayed off at `Hold mic to talk`; no self-interruption was visible in the user utterance audit row.
 
 Local demo artifacts, intentionally kept under ignored `.derivedData/`:
 
@@ -207,13 +214,13 @@ python3 Scripts/package_voice_hack_night.py
 
 The script rebuilds ignored `dist/voice-hack-night/`, copies only video and screenshot files from ignored `.derivedData/demo-artifacts/`, extracts this README's `Application Materials` section into `application-answers.md`, writes `manifest.json`, and writes SHA-256 hashes to `CHECKSUMS.txt`. It also verifies `.derivedData/`, `dist/`, `.env`, `.env.local`, and local secret config paths are protected by `.gitignore` before packaging.
 
-Treat AI Guide Mode validation separately: launch with an ignored `OPENAI_API_KEY`, confirm `gpt-realtime-2` speaks from compact context, verify push-to-talk interruption behavior, then confirm Local Guide/AVFoundation fallback still works with the key removed.
+Treat AI Guide Mode validation separately: launch with an ignored `OPENAI_API_KEY`, confirm `gpt-realtime` speaks from compact context, verify push-to-talk interruption behavior, then confirm Local Guide/AVFoundation fallback still works with the key removed.
 
 ## Risk And Fallback Notes
 
 - Wi-Fi/API failure: continue the same replay in Local Guide mode and use AVFoundation narration.
 - Missing or invalid `OPENAI_API_KEY`: do not block the demo; keep the key out of the repo and demonstrate the local fallback path.
-- Realtime latency or push-to-talk interruption failure: narrate the currently selected local fact with AVFoundation and use the audit panel to explain what would have been sent to `gpt-realtime-2`.
+- Realtime latency or push-to-talk interruption failure: narrate the currently selected local fact with AVFoundation and use the audit panel to explain what would have been sent to `gpt-realtime`.
 - No live driving: route position is simulated from bundled waypoints for repeatable event demos.
 - No turn-by-turn, traffic, or CarPlay: MapKit is used as a visual route replay surface only.
 - No backend or runtime scraping: the app uses bundled Honolulu facts with source URLs.

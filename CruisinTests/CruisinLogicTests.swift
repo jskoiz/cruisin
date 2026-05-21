@@ -18,7 +18,97 @@ final class CruisinLogicTests: XCTestCase {
 
         XCTAssertEqual(candidates.map(\.fact.id), ["food", "culture"])
         XCTAssertGreaterThan(candidates[0].rankScore, candidates[1].rankScore)
-        XCTAssertTrue(candidates[0].reason.contains("preference boost"))
+        XCTAssertTrue(candidates[0].reason.contains("matches preference"))
+    }
+
+    func testLegacyFactJSONDecodesWithEnrichmentDefaults() throws {
+        let json = """
+        {
+          "id": "legacy",
+          "name": "Legacy Site",
+          "category": "history",
+          "latitude": 21.3,
+          "longitude": -157.85,
+          "narration": "Legacy narration",
+          "sourceName": "fixture",
+          "sourceURL": "https://example.invalid/legacy",
+          "priority": 4
+        }
+        """.data(using: .utf8)!
+
+        let decoded = try JSONDecoder().decode(LocalFact.self, from: json)
+
+        XCTAssertEqual(decoded.sourceURLs, ["https://example.invalid/legacy"])
+        XCTAssertEqual(decoded.sourceConfidence, 0.75)
+        XCTAssertEqual(decoded.subcategory, nil)
+        XCTAssertEqual(decoded.tags, [])
+        XCTAssertEqual(decoded.sensitivity, "normal")
+        XCTAssertTrue(decoded.evergreen)
+    }
+
+    func testQuietModePenalizesWeakDriveByCandidates() {
+        let coordinate = CLLocationCoordinate2D(latitude: 21.3000, longitude: -157.8500)
+        let weak = fact(
+            id: "weak",
+            name: "Weak Fact",
+            category: "food",
+            priority: 2,
+            driveByValue: 0.3
+        )
+
+        let normal = NarrationEngine().candidates(near: coordinate, facts: [weak])
+        let quiet = NarrationEngine().candidates(near: coordinate, facts: [weak], quietMode: true)
+
+        XCTAssertGreaterThan(normal[0].rankScore, quiet[0].rankScore)
+        XCTAssertTrue(quiet[0].reason.contains("quiet mode lowers weak interruption"))
+    }
+
+    func testSourceConfidenceAffectsRank() {
+        let coordinate = CLLocationCoordinate2D(latitude: 21.3000, longitude: -157.8500)
+        let lowConfidence = fact(id: "low", name: "Low Confidence", category: "history", priority: 3, sourceConfidence: 0.2)
+        let highConfidence = fact(id: "high", name: "High Confidence", category: "history", priority: 3, sourceConfidence: 0.95)
+
+        let candidates = NarrationEngine().candidates(near: coordinate, facts: [lowConfidence, highConfidence])
+
+        XCTAssertEqual(candidates.first?.fact.id, "high")
+        XCTAssertTrue(candidates.first?.reason.contains("source 95%") == true)
+    }
+
+    func testRealtimeContextCapsTopRankedFacts() {
+        var facts: [FactContext] = []
+        for index in 0..<6 {
+            let category = index == 5 ? "food" : "history"
+            let context = factContext(
+                name: "Fact \(index)",
+                category: category,
+                distanceMeters: Double(index * 10),
+                rankScore: Double(1000 - index)
+            )
+            facts.append(context)
+        }
+        let snapshot = DriveContextSnapshot(
+            generatedAt: Date(timeIntervalSince1970: 2_000),
+            routeLabel: "Test route",
+            coordinates: .init(latitude: 21.3000, longitude: -157.8500),
+            progress: 0.4,
+            nearbyFacts: facts,
+            lastSpokenFactID: nil,
+            lastDecisionReason: "Testing",
+            preferredCategories: ["history"],
+            excludedCategories: ["food"],
+            quietMode: true
+        )
+
+        var preferences = RealtimeGuidePreferences()
+        _ = preferences.infer(from: "Skip food. Give me the history angle, and keep it short.")
+        let context = StagedRealtimeContext(snapshot: snapshot, preferences: preferences)
+        let data = try! JSONEncoder().encode(context)
+        let json = String(data: data, encoding: .utf8)!
+
+        XCTAssertEqual(context.topFacts.map(\.name), ["Fact 0", "Fact 1", "Fact 2", "Fact 3"])
+        XCTAssertFalse(json.contains("Fact 4"))
+        XCTAssertFalse(json.contains("Fact 5"))
+        XCTAssertTrue(json.contains("auditReasons"))
     }
 
     func testCooldownBlocksNarrationAndExplainsRemainingTime() {
@@ -127,7 +217,9 @@ final class CruisinLogicTests: XCTestCase {
         category: String,
         latitude: Double = 21.3000,
         longitude: Double = -157.8500,
-        priority: Int
+        priority: Int,
+        sourceConfidence: Double = 0.75,
+        driveByValue: Double = 0.5
     ) -> LocalFact {
         LocalFact(
             id: id,
@@ -138,7 +230,9 @@ final class CruisinLogicTests: XCTestCase {
             narration: "\(name) narration",
             sourceName: "fixture",
             sourceURL: "https://example.invalid/\(id)",
-            priority: priority
+            sourceConfidence: sourceConfidence,
+            priority: priority,
+            driveByValue: driveByValue
         )
     }
 
@@ -161,18 +255,21 @@ final class CruisinLogicTests: XCTestCase {
     private func factContext(
         name: String,
         category: String,
-        distanceMeters: Double
+        distanceMeters: Double,
+        rankScore: Double? = nil
     ) -> FactContext {
         FactContext(
             id: name.lowercased().replacingOccurrences(of: " ", with: "-"),
             name: name,
             category: category,
             distanceMeters: distanceMeters,
-            rankScore: 1000 - distanceMeters,
+            rankScore: rankScore ?? 1000 - distanceMeters,
             reason: "\(Int(distanceMeters)) m away",
+            auditReasons: ["\(Int(distanceMeters)) m away", "test reason"],
             narration: "\(name) narration",
             sourceName: "fixture",
-            sourceURL: "https://example.invalid"
+            sourceURL: "https://example.invalid",
+            sourceConfidence: 0.9
         )
     }
 }

@@ -11,10 +11,10 @@ struct DrivingExperienceView: View {
     )
     @State private var mapZoomLevel: MapZoomLevel = .street
     @State private var followsRoutePosition = true
-    @State private var showsAudit = true
+    @State private var showsAudit = false
 
     var body: some View {
-        ZStack(alignment: .bottom) {
+        ZStack(alignment: .top) {
             Map(position: $cameraPosition, interactionModes: [.pan, .zoom, .rotate]) {
                 MapPolyline(coordinates: model.route.map(\.coordinate))
                     .stroke(.cyan.opacity(0.72), lineWidth: 5)
@@ -45,29 +45,34 @@ struct DrivingExperienceView: View {
                 updateCamera(animated: false)
             }
 
-            VStack(spacing: 10) {
+            VStack(spacing: 0) {
                 RouteStatusHeader(model: model)
-                    .padding(.horizontal, 14)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 6)
+
+                HStack {
+                    Spacer()
+                    MapCameraControls(
+                        selection: Binding(
+                            get: { mapZoomLevel },
+                            set: { zoomLevel in
+                                mapZoomLevel = zoomLevel
+                                recenterOnRoute()
+                            }
+                        ),
+                        followsRoutePosition: followsRoutePosition,
+                        onRecenter: recenterOnRoute
+                    )
                     .padding(.top, 10)
+                    .padding(.trailing, 16)
+                }
 
-                MapCameraControls(
-                    selection: Binding(
-                        get: { mapZoomLevel },
-                        set: { zoomLevel in
-                            mapZoomLevel = zoomLevel
-                            recenterOnRoute()
-                        }
-                    ),
-                    followsRoutePosition: followsRoutePosition,
-                    onRecenter: recenterOnRoute
-                )
-                .padding(.horizontal, 14)
-
-                Spacer()
-
+                Spacer(minLength: 0)
+            }
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            VStack(spacing: 10) {
                 NearbyContextPanel(model: model, showsAudit: $showsAudit)
-                    .padding(.horizontal, 14)
-
                 ControlStrip(
                     isRunning: model.isRunning,
                     onStart: model.start,
@@ -75,9 +80,11 @@ struct DrivingExperienceView: View {
                     onReplay: model.routeReplay,
                     showsAudit: $showsAudit
                 )
-                .padding(.horizontal, 14)
-                .padding(.bottom, 10)
             }
+            .padding(.horizontal, 14)
+            .padding(.top, 10)
+            .padding(.bottom, 8)
+            .background(.ultraThinMaterial)
         }
     }
 
@@ -119,6 +126,14 @@ private enum MapZoomLevel: String, CaseIterable, Identifiable {
         }
     }
 
+    var shortTitle: String {
+        switch self {
+        case .route: return "R"
+        case .close: return "C"
+        case .street: return "S"
+        }
+    }
+
     var span: MKCoordinateSpan {
         switch self {
         case .route:
@@ -137,27 +152,33 @@ private struct MapCameraControls: View {
     let onRecenter: () -> Void
 
     var body: some View {
-        HStack(spacing: 8) {
-            Picker("Map zoom", selection: $selection) {
-                ForEach(MapZoomLevel.allCases) { zoomLevel in
-                    Text(zoomLevel.title).tag(zoomLevel)
-                }
-            }
-            .pickerStyle(.segmented)
-
+        VStack(spacing: 8) {
             Button(action: onRecenter) {
                 Image(systemName: followsRoutePosition ? "location.fill" : "location")
                     .font(.body.weight(.semibold))
-                    .frame(width: 42, height: 34)
+                    .frame(width: 44, height: 42)
                     .accessibilityLabel(followsRoutePosition ? "Following route position" : "Recenter on route position")
             }
             .buttonStyle(.plain)
             .foregroundStyle(followsRoutePosition ? .cyan : .primary)
-            .background(Color(.systemBackground).opacity(0.86), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+            ForEach(MapZoomLevel.allCases) { zoomLevel in
+                Button {
+                    selection = zoomLevel
+                } label: {
+                    Text(zoomLevel.shortTitle)
+                        .font(.caption2.weight(.bold))
+                        .frame(width: 44, height: 34)
+                        .foregroundStyle(selection == zoomLevel ? .white : .primary)
+                        .background(selection == zoomLevel ? Color.cyan : Color.clear, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("\(zoomLevel.title) map zoom")
+            }
         }
-        .padding(8)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .shadow(color: .black.opacity(0.12), radius: 14, y: 7)
+        .padding(6)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .shadow(color: .black.opacity(0.14), radius: 12, y: 6)
     }
 }
 
@@ -165,50 +186,45 @@ private struct RouteStatusHeader: View {
     @ObservedObject var model: DriveGuideModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Honolulu Drive")
-                        .font(.headline.weight(.semibold))
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(alignment: .center, spacing: 10) {
+                Image(systemName: model.isRunning ? "car.circle.fill" : "car.circle")
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(model.isRunning ? .green : .orange)
+
+                VStack(alignment: .leading, spacing: 1) {
                     Text(model.currentLabel)
-                        .font(.subheadline)
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(1)
+                    Text(model.narrationStatus)
+                        .font(.caption2)
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
 
-                Spacer()
+                Spacer(minLength: 8)
 
-                VStack(alignment: .trailing, spacing: 6) {
-                    Label(model.isRunning ? "Live replay" : "Paused", systemImage: model.isRunning ? "waveform.circle.fill" : "pause.circle")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(model.isRunning ? .green : .orange)
-                        .labelStyle(.titleAndIcon)
-
-                    RealtimeStatusBadge(
-                        state: model.realtimeStatus,
-                        mode: model.guideVoiceMode,
-                        fallbackMessage: model.fallbackErrorState
-                    )
-                }
-                .frame(maxWidth: 190, alignment: .trailing)
+                RealtimeStatusBadge(
+                    state: model.realtimeStatus,
+                    mode: model.guideVoiceMode,
+                    fallbackMessage: model.fallbackErrorState
+                )
             }
 
-            GuideModePicker(selection: $model.guideVoiceMode)
+            HStack(spacing: 10) {
+                GuideModePicker(selection: $model.guideVoiceMode)
+                Text("\(Int((model.progress * 100).rounded()))%")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 38, alignment: .trailing)
+            }
 
             ProgressView(value: model.progress)
                 .tint(.cyan)
-
-            HStack(spacing: 6) {
-                Image(systemName: "speaker.wave.2.fill")
-                    .foregroundStyle(.cyan)
-                Text(model.narrationStatus)
-                    .font(.caption)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.78)
-            }
         }
-        .padding(12)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .shadow(color: .black.opacity(0.14), radius: 18, y: 10)
+        .padding(10)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .shadow(color: .black.opacity(0.12), radius: 14, y: 8)
     }
 }
 
@@ -233,24 +249,17 @@ private struct RealtimeStatusBadge: View {
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 3) {
-            Label("GPT-Realtime-2 \(display.title)", systemImage: display.symbol)
+            Label("GPT-Realtime \(display.title)", systemImage: display.symbol)
                 .font(.caption2.weight(.bold))
                 .foregroundStyle(display.tint)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 5)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 4)
                 .background(display.tint.opacity(0.14), in: Capsule())
-
-            Text(display.detail)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.trailing)
-                .lineLimit(2)
-                .minimumScaleFactor(0.78)
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("GPT-Realtime-2 \(display.title). \(display.detail)")
+        .accessibilityLabel("GPT-Realtime \(display.title). \(display.detail)")
     }
 
     private var display: RealtimeStatusDisplay {
@@ -336,7 +345,7 @@ private struct NearbyContextPanel: View {
     @Binding var showsAudit: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 9) {
             HStack {
                 Label("Nearby Context", systemImage: "scope")
                     .font(.subheadline.weight(.semibold))
@@ -349,12 +358,12 @@ private struct NearbyContextPanel: View {
             if let top = model.nearbyCandidates.first {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(top.fact.name)
-                        .font(.title3.weight(.semibold))
-                        .lineLimit(2)
+                        .font(.headline.weight(.semibold))
+                        .lineLimit(1)
                     Text(top.fact.narration)
-                        .font(.callout)
+                        .font(.caption)
                         .foregroundStyle(.secondary)
-                        .lineLimit(3)
+                        .lineLimit(showsAudit ? 2 : 1)
                     Label("\(Int(top.distanceMeters)) m away  \(top.fact.category)", systemImage: "mappin.and.ellipse")
                         .font(.caption.weight(.medium))
                         .foregroundStyle(.cyan)
@@ -368,12 +377,15 @@ private struct NearbyContextPanel: View {
             GuideConversationRow(model: model)
 
             if showsAudit {
-                AuditPanel(model: model)
+                ScrollView {
+                    AuditPanel(model: model)
+                }
+                .frame(maxHeight: 220)
             }
         }
         .padding(12)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .shadow(color: .black.opacity(0.16), radius: 18, y: 10)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .shadow(color: .black.opacity(0.12), radius: 14, y: 8)
     }
 }
 
@@ -491,7 +503,7 @@ private struct AuditPanel: View {
                 AuditFieldRow(
                     title: "Model transcript",
                     value: model.lastModelTranscript,
-                    emptyText: "Waiting for GPT-Realtime-2 transcript",
+                    emptyText: "Waiting for GPT-Realtime transcript",
                     systemImage: "text.bubble.fill",
                     tint: .cyan,
                     lineLimit: 4
@@ -509,6 +521,14 @@ private struct AuditPanel: View {
                     emptyText: "Balanced categories",
                     systemImage: "slider.horizontal.3",
                     tint: .green
+                )
+                AuditFieldRow(
+                    title: "Top selection",
+                    value: model.nearbyCandidates.first?.reason,
+                    emptyText: "No nearby fact has cleared the ranking threshold",
+                    systemImage: "scope",
+                    tint: .indigo,
+                    lineLimit: 3
                 )
                 AuditFieldRow(
                     title: "Context summary",
@@ -616,8 +636,15 @@ private struct CandidateChip: View {
             Text("\(Int(candidate.distanceMeters)) m \(candidate.fact.category)")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
+            Text("score \(Int(candidate.rankScore.rounded()))")
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(.secondary)
+            Text(candidate.auditReasons.prefix(2).joined(separator: " • "))
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
         }
-        .frame(width: 132, alignment: .leading)
+        .frame(width: 164, alignment: .leading)
         .padding(8)
         .background(Color(.secondarySystemBackground).opacity(0.82), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
@@ -633,7 +660,7 @@ private struct ControlStrip: View {
     var body: some View {
         HStack(spacing: 10) {
             Button(action: onStart) {
-                Label("Start", systemImage: "play.fill")
+                Label(isRunning ? "Live" : "Start", systemImage: "play.fill")
             }
             .buttonStyle(ControlButtonStyle(tint: .green, isProminent: !isRunning))
 
@@ -650,10 +677,10 @@ private struct ControlStrip: View {
             Button {
                 showsAudit.toggle()
             } label: {
-                Image(systemName: showsAudit ? "list.bullet.rectangle.fill" : "list.bullet.rectangle")
+                Label(showsAudit ? "Hide" : "Audit", systemImage: showsAudit ? "list.bullet.rectangle.fill" : "list.bullet.rectangle")
                     .accessibilityLabel("Toggle audit panel")
             }
-            .buttonStyle(IconButtonStyle())
+            .buttonStyle(ControlButtonStyle(tint: .purple, isProminent: false))
         }
     }
 }
@@ -667,20 +694,9 @@ private struct ControlButtonStyle: ButtonStyle {
             .font(.callout.weight(.semibold))
             .lineLimit(1)
             .minimumScaleFactor(0.8)
-            .frame(maxWidth: .infinity, minHeight: 46)
+            .frame(maxWidth: .infinity, minHeight: 50)
             .foregroundStyle(isProminent ? .white : tint)
             .background(isProminent ? tint : Color(.systemBackground).opacity(0.86), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .opacity(configuration.isPressed ? 0.72 : 1)
-    }
-}
-
-private struct IconButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.title3.weight(.semibold))
-            .frame(width: 48, height: 46)
-            .foregroundStyle(.purple)
-            .background(Color(.systemBackground).opacity(0.86), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             .opacity(configuration.isPressed ? 0.72 : 1)
     }
 }

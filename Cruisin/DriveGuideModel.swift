@@ -18,7 +18,7 @@ final class DriveGuideModel: ObservableObject {
     @Published private(set) var narrationStatus = "Idle"
     @Published private(set) var lastSpokenFactID: String?
     @Published private(set) var spokenEvents: [NarrationEvent] = []
-    @Published var guideVoiceMode: GuideVoiceMode = .local {
+    @Published var guideVoiceMode: GuideVoiceMode = .realtime {
         didSet {
             guard guideVoiceMode != oldValue else { return }
             handleGuideVoiceModeChange()
@@ -55,6 +55,8 @@ final class DriveGuideModel: ObservableObject {
     private var isStartingVoiceQuestion = false
     private var shouldFinishVoiceQuestionAfterStart = false
     private var lastRealtimeContextUpdateAt: Date?
+    private var routeNarrationHoldUntil: Date?
+    private let questionRouteNarrationGraceSeconds: TimeInterval = 30
 
     var realtimeStatus: RealtimeConnectionState {
         realtimeState
@@ -95,7 +97,7 @@ final class DriveGuideModel: ObservableObject {
     init(
         narrator: VoiceNarrating? = nil,
         realtimeGuide: RealtimeGuideSessioning? = nil,
-        guideVoiceMode: GuideVoiceMode = .local
+        guideVoiceMode: GuideVoiceMode = .realtime
     ) {
         let loadedFacts = SeedDataStore.loadFacts()
         let loadedRoute = SeedDataStore.loadRoute()
@@ -153,6 +155,7 @@ final class DriveGuideModel: ObservableObject {
         spokenIDs.removeAll()
         spokenEvents.removeAll()
         lastSpokenAt = nil
+        routeNarrationHoldUntil = nil
         lastReplayTickAt = nil
         lastAreaID = nil
         lastSpokenFactID = nil
@@ -222,6 +225,7 @@ final class DriveGuideModel: ObservableObject {
 
         voiceQuestionRecorder.finish()
         voiceQuestionStatus = "Sending voice turn"
+        holdRouteNarrationAfterQuestion()
 
         Task { [weak self] in
             guard let self else { return }
@@ -299,6 +303,7 @@ final class DriveGuideModel: ObservableObject {
         fallbackReason = nil
         realtimeErrorMessage = nil
         lastSpokenAt = Date()
+        holdRouteNarrationAfterQuestion()
         shouldResumeRouteContextAfterQuestion = isRunning
         if isListeningForQuestion {
             isListeningForQuestion = false
@@ -421,13 +426,17 @@ final class DriveGuideModel: ObservableObject {
             nearbyCandidates = engine.candidates(
                 near: currentCoordinate,
                 facts: facts,
-                preferredCategories: preferredCategories
+                preferredCategories: preferredCategories,
+                quietMode: quietMode,
+                spokenIDs: spokenIDs
             )
         } else {
             let unfilteredCandidates = engine.candidates(
                 near: currentCoordinate,
                 facts: facts,
-                preferredCategories: preferredCategories
+                preferredCategories: preferredCategories,
+                quietMode: quietMode,
+                spokenIDs: spokenIDs
             )
             excludedNearbyCandidateCount = unfilteredCandidates.filter { candidate in
                 excludedCategories.contains(candidate.fact.category.lowercased())
@@ -436,12 +445,26 @@ final class DriveGuideModel: ObservableObject {
                 near: currentCoordinate,
                 facts: facts,
                 preferredCategories: preferredCategories,
-                excludedCategories: excludedCategories
+                excludedCategories: excludedCategories,
+                quietMode: quietMode,
+                spokenIDs: spokenIDs
             )
         }
 
         guard allowSpeech else {
             lastDecisionReason = holdReason
+            updateContextSummary()
+            return
+        }
+
+        if let routeNarrationHoldUntil, now < routeNarrationHoldUntil {
+            lastDecisionReason = "Holding route narration so the AI Guide can finish the driver question"
+            updateContextSummary()
+            return
+        }
+
+        if guideVoiceMode == .realtime, realtimeState == .speaking {
+            lastDecisionReason = "AI Guide is answering; skipping this waypoint narration"
             updateContextSummary()
             return
         }
@@ -671,6 +694,16 @@ final class DriveGuideModel: ObservableObject {
         }
     }
 
+    private func holdRouteNarrationAfterQuestion() {
+        let holdUntil = Date().addingTimeInterval(questionRouteNarrationGraceSeconds)
+        if let routeNarrationHoldUntil, routeNarrationHoldUntil > holdUntil {
+            return
+        }
+
+        routeNarrationHoldUntil = holdUntil
+        lastSpokenAt = Date()
+    }
+
     private func publishRealtimeRouteContext(force: Bool = false) {
         guard guideVoiceMode == .realtime, let realtimeGuide else { return }
         guard realtimeState == .connected || realtimeState == .speaking else { return }
@@ -832,12 +865,18 @@ private extension FactContext {
             id: candidate.fact.id,
             name: candidate.fact.name,
             category: candidate.fact.category,
+            subcategory: candidate.fact.subcategory,
+            tags: candidate.fact.tags,
             distanceMeters: candidate.distanceMeters,
             rankScore: candidate.rankScore,
             reason: candidate.reason,
+            auditReasons: candidate.auditReasons,
+            scoreComponents: candidate.scoreComponents,
             narration: candidate.fact.narration,
             sourceName: candidate.fact.sourceName,
-            sourceURL: candidate.fact.sourceURL
+            sourceURL: candidate.fact.sourceURL,
+            sourceURLs: candidate.fact.sourceURLs,
+            sourceConfidence: candidate.fact.sourceConfidence
         )
     }
 }
