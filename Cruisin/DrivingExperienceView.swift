@@ -249,7 +249,7 @@ private struct RealtimeStatusBadge: View {
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 3) {
-            Label("GPT-Realtime \(display.title)", systemImage: display.symbol)
+            Label("GPT-Realtime-2 \(display.title)", systemImage: display.symbol)
                 .font(.caption2.weight(.bold))
                 .foregroundStyle(display.tint)
                 .lineLimit(1)
@@ -259,7 +259,7 @@ private struct RealtimeStatusBadge: View {
                 .background(display.tint.opacity(0.14), in: Capsule())
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("GPT-Realtime \(display.title). \(display.detail)")
+        .accessibilityLabel("GPT-Realtime-2 \(display.title). \(display.detail)")
     }
 
     private var display: RealtimeStatusDisplay {
@@ -503,7 +503,7 @@ private struct AuditPanel: View {
                 AuditFieldRow(
                     title: "Model transcript",
                     value: model.lastModelTranscript,
-                    emptyText: "Waiting for GPT-Realtime transcript",
+                    emptyText: "Waiting for GPT-Realtime-2 transcript",
                     systemImage: "text.bubble.fill",
                     tint: .cyan,
                     lineLimit: 4

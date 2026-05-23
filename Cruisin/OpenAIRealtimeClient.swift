@@ -93,7 +93,7 @@ enum OpenAIRealtimeEvent {
 final class OpenAIRealtimeClient {
     typealias JSONObject = [String: Any]
 
-    static let defaultModel = "gpt-realtime"
+    static let defaultModel = "gpt-realtime-2"
 
     let model: String
     let events: AsyncStream<OpenAIRealtimeEvent>
