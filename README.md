@@ -78,9 +78,9 @@ xcodebuild \
   build
 ```
 
-To run interactively without AI Guide Mode secrets, open `Cruisin.xcodeproj` in Xcode and run the `Cruisin` scheme on an iOS simulator, or use the Build iOS Apps/XcodeBuildMCP simulator run workflow with:
+To run interactively without AI Guide Mode secrets, open `Cruisin.xcodeproj` in Xcode and run the `Cruisin` scheme on an iOS simulator, or use an iOS simulator run workflow with:
 
-- project: `/Users/jk/Desktop/cruisin/Cruisin.xcodeproj`
+- project: `Cruisin.xcodeproj`
 - scheme: `Cruisin`
 - bundle id: `com.avmillabs.cruisin`
 
@@ -150,61 +150,30 @@ Project name: Cruisin AI Guide Mode
 
 Repo: https://github.com/jskoiz/cruisin
 
-Demo video or live demo link: pending external task. The local capture exists at `.derivedData/demo-artifacts/cruisin-ai-guide-demo-89s.mp4`, but no public upload/share link has been created yet.
+Demo video or live demo link: add hosted video link here before submitting the form.
 
 Cruisin is a native SwiftUI iOS prototype for OpenAI Voice Hack Night. It replays a simulated Honolulu route, ranks bundled nearby facts, and sends compact route context to OpenAI Realtime with `gpt-realtime` so the guide can speak concise narration.
 
 What I am building with OpenAI realtime models: AI Guide Mode, a spoken route guide that can respond to driver questions while the simulated drive continues. In the demo, push-to-talk can interrupt the guide with "Skip food. Give me the history angle, and keep it short," and `gpt-realtime` uses the current route context plus local preferences to answer briefly.
 
-Relevant links: the public repo is https://github.com/jskoiz/cruisin. The demo video link is still an external upload/share task; the current local demo artifacts are under ignored `.derivedData/demo-artifacts/`.
+Relevant links: the public repo is https://github.com/jskoiz/cruisin. Add the hosted demo video link alongside the repo link before submitting the form.
 
 Models used: OpenAI Realtime with `gpt-realtime`.
 
 Scope and safety: the demo uses simulated route replay only. It is not live driving, not turn-by-turn navigation, not traffic-aware, not CarPlay, and not a backend or scraping system. If credentials, Wi-Fi, or API access fail, the same route replay continues in Local Guide mode with AVFoundation speech.
 
-## Current Local Validation
+## Current Validation
 
-Local route replay, AI Guide Mode, interruption, and AVFoundation fallback were visually validated from `/Users/jk/Desktop/cruisin` at commit `d188985` on May 20, 2026 HST / May 21, 2026 UTC:
+The public `main` branch was prepared for OpenAI Voice Hack Night submission on May 22, 2026 HST at commit `eb2bac7`.
 
-- `git status --ignored -sb` showed a clean tracked tree with only ignored `.env` and `.derivedData/`.
-- Secret scan excluding `.env`, `.env.local`, and `.derivedData/` found no committed OpenAI, AWS, Google, Slack, Linear, or private-key patterns.
-- `xcodebuild -list -project Cruisin.xcodeproj` found target and scheme `Cruisin`.
+- The GitHub repository is public: https://github.com/jskoiz/cruisin
+- The tracked tree excludes `.env`, `.env.local`, `.derivedData/`, `dist/`, logs, user-specific Xcode state, and local secret config paths.
+- A current-tree secret scan found no committed OpenAI keys, AWS access keys, Linear keys, private keys, or populated OpenAI environment variables.
+- A history scan found only environment-variable placeholders such as `$OPENAI_API_KEY`, not raw secret values.
 - `xcodebuild -project Cruisin.xcodeproj -scheme Cruisin -configuration Debug -derivedDataPath .derivedData -destination 'generic/platform=iOS Simulator' build` succeeded.
-- For this submission cleanup pass, Build iOS Apps/XcodeBuildMCP `build_sim` was rerun from `/Users/jk/Desktop/cruisin/Cruisin.xcodeproj` with scheme `Cruisin` on iPhone 17 Pro Max iOS 26.5 and succeeded.
-- Build iOS Apps/XcodeBuildMCP built and launched `Cruisin` from `/Users/jk/Desktop/cruisin/Cruisin.xcodeproj` on iPhone 17 Pro Max iOS 26.5 with bundle `com.avmillabs.cruisin`.
-- Local Guide visible flow: tapping `Start` moved the route from Waikiki toward Fort DeRussy, changed status to `Live replay`, showed `Speaking: Waikiki`, updated nearby candidates, and displayed cooldown/context audit rows.
-- AI Guide visible flow: launching with `SIMCTL_CHILD_OPENAI_API_KEY` populated from ignored `.env`, selecting `AI Guide`, and tapping `Start` showed `GPT-Realtime Connected`, then `GPT-Realtime Speaking`, with a model transcript generated from the route context.
-- Interruption visible flow: using AI Guide push-to-talk, or tapping the canned command, records `Skip food. Give me the history angle, and keep it short.` in the audit panel and updates context preferences toward history/quiet guidance.
-- Fallback visible flow: relaunching without `OPENAI_API_KEY` showed `GPT-Realtime Fallback`, reported the missing environment variable in the audit panel, and continued replay with `Local fallback: Waikiki`.
+- `xcodebuild -project Cruisin.xcodeproj -scheme Cruisin -configuration Debug -derivedDataPath .derivedData -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' test` succeeded with 10 focused logic tests.
 
-The merged submission state was revalidated from `/Users/jk/Desktop/cruisin` on May 20, 2026 HST / May 21, 2026 UTC:
-
-- `xcodebuild -project Cruisin.xcodeproj -scheme Cruisin -configuration Debug -derivedDataPath .derivedData -destination 'generic/platform=iOS Simulator' build` succeeded.
-- `xcodebuild -project Cruisin.xcodeproj -scheme Cruisin -configuration Debug -derivedDataPath .derivedData -destination 'generic/platform=iOS Simulator' test` correctly reported that XCTest requires a concrete simulator device.
-- `xcodebuild -project Cruisin.xcodeproj -scheme Cruisin -configuration Debug -derivedDataPath .derivedData -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max,OS=26.5' test` succeeded with 5 logic tests.
-
-The Kalakaua Avenue route update was revalidated from `/Users/jk/.codex/worktrees/7c5b/cruisin` on May 20, 2026 HST / May 21, 2026 UTC:
-
-- Build iOS Apps/XcodeBuildMCP `test_sim` succeeded on iPhone 17 Pro Max iOS Simulator with 6 logic tests.
-- Build iOS Apps/XcodeBuildMCP `build_run_sim` succeeded from this worktree and launched bundle `com.avmillabs.cruisin`.
-- Visual check confirmed the closer street map, Route/Close/Street zoom control, recenter button, and a road-following Kalakaua Avenue replay starting at Ala Moana Boulevard toward Kapahulu Avenue.
-- `python3 Scripts/package_voice_hack_night.py` succeeded and copied 2 videos plus 4 screenshots into ignored `dist/voice-hack-night/`.
-- `(cd dist/voice-hack-night && shasum -a 256 -c CHECKSUMS.txt)` succeeded.
-
-The push-to-talk demo simplification was revalidated from `/Users/jk/.codex/worktrees/7c5b/cruisin` on May 21, 2026 HST:
-
-- Build iOS Apps/XcodeBuildMCP `build_sim` succeeded on iPhone 17 Pro Max iOS Simulator.
-- Build iOS Apps/XcodeBuildMCP `test_sim` succeeded with 6 logic tests.
-- Relaunching with `SIMCTL_CHILD_OPENAI_API_KEY` populated from ignored `.env`, selecting `AI Guide`, and tapping `Start` showed `GPT-Realtime Speaking` while the mic stayed off at `Hold mic to talk`; no self-interruption was visible in the user utterance audit row.
-
-Local demo artifacts, intentionally kept under ignored `.derivedData/`:
-
-- `.derivedData/demo-artifacts/cruisin-ai-guide-demo-89s.mp4`
-- `.derivedData/demo-artifacts/cruisin-ai-guide-demo.mp4` backup capture
-- `.derivedData/demo-artifacts/local-guide-live-replay.jpg`
-- `.derivedData/demo-artifacts/ai-guide-speaking.jpg`
-- `.derivedData/demo-artifacts/ai-guide-interruption-audit.jpg`
-- `.derivedData/demo-artifacts/fallback-no-openai-key.jpg`
+Local demo media can be packaged from ignored `.derivedData/demo-artifacts/` when present, but media files and secret files are intentionally not committed to the public repo.
 
 Build the repeatable local submission pack after the video and screenshots exist:
 
@@ -225,12 +194,9 @@ Treat AI Guide Mode validation separately: launch with an ignored `OPENAI_API_KE
 - No turn-by-turn, traffic, or CarPlay: MapKit is used as a visual route replay surface only.
 - No backend or runtime scraping: the app uses bundled Honolulu facts with source URLs.
 
-## Unresolved External Tasks
+## Submission Checklist
 
-- Upload or share `.derivedData/demo-artifacts/cruisin-ai-guide-demo-89s.mp4`, then replace the pending demo link.
-- Run the final event dry run with a valid ignored `OPENAI_API_KEY` and the expected venue network; keep keys out of screenshots, logs, commits, and recordings.
-- Submit the final OpenAI Voice Hack Night application using the repo link and uploaded demo video link.
-
-## Next Best Step
-
-Upload the 89-second demo video, paste the final share link into the application materials, and run one venue-network dry run with an ignored `OPENAI_API_KEY`.
+- Paste the public repo link: https://github.com/jskoiz/cruisin
+- Add a hosted demo video link in the application form.
+- Run the final dry run with a valid ignored `OPENAI_API_KEY` and the expected network.
+- Keep keys out of screenshots, logs, commits, and recordings.
