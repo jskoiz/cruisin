@@ -8,6 +8,8 @@ When GPT-Realtime-2 came out, it felt like the perfect model for this: a voice g
 
 This demo replays a simulated Kalakaua Avenue / Waikiki Beach drive. It ranks nearby bundled facts, sends compact route context to OpenAI Realtime with `gpt-realtime-2`, and lets the user interrupt naturally with push-to-talk. If realtime access fails, the same route still works with a local AVFoundation voice fallback.
 
+![Cruisin running in the iOS simulator with GPT-Realtime-2 connected](docs/assets/cruisin-gpt-realtime-2-connected.jpg)
+
 ## What It Shows
 
 - Native SwiftUI driving surface with MapKit route replay
